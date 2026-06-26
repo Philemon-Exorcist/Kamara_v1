@@ -12,7 +12,7 @@ from connection.connect_manager import manager
 from .tutor_agent import TUTOR_TOOL_MAP
 from .visual_task import (
     generate_tutor_background_brief,
-    get_gemini_client,
+    get_live_gemini_client,
     get_live_connect_config,
     get_tutor_live_model_candidates,
 )
@@ -78,7 +78,7 @@ class TutorLiveSession:
             return
 
         if self._client is None:
-            self._client = get_gemini_client()
+            self._client = get_live_gemini_client()
 
         if not self.tutor_brief.strip():
             await self.prepare_brief()
@@ -178,6 +178,7 @@ class TutorLiveSession:
         self._relay_task = None
         self._live_session = None
         self._client_cm = None
+        release_tutor_session(self.student_uuid, self.session_id)
 
     async def _relay_loop(self) -> None:
         if not self._live_session:

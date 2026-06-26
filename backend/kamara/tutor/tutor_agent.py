@@ -38,7 +38,7 @@ class TutorTool:
 TUTOR_TOOLS: list[TutorTool] = [
     TutorTool(
         name="async_draw",
-        description="Draw a geometric shape on the shared tutor whiteboard.",
+        description="Draw a geometric shape such as a rectangle, circle, triangle, or diamond on the shared tutor whiteboard. Use this for diagrams, labels, and visual scaffolding.",
         parameters={
             "type": "OBJECT",
             "properties": {
@@ -55,7 +55,7 @@ TUTOR_TOOLS: list[TutorTool] = [
     ),
     TutorTool(
         name="clear_whiteboard",
-        description="Clear the full tutor whiteboard.",
+        description="Clear the full tutor whiteboard in one action. Use this when starting a new topic or replacing a messy board layout.",
         parameters={
             "type": "OBJECT",
             "properties": {},
@@ -64,7 +64,7 @@ TUTOR_TOOLS: list[TutorTool] = [
     ),
     TutorTool(
         name="write_board",
-        description="Write text or equations on the tutor whiteboard.",
+        description="Write text, formulas, steps, or short hints on the tutor whiteboard. Use this for worked solutions, definitions, and concise annotations.",
         parameters={
             "type": "OBJECT",
             "properties": {
@@ -74,13 +74,13 @@ TUTOR_TOOLS: list[TutorTool] = [
                 "y": {"type": "INTEGER"},
                 "text_size": {"type": "INTEGER"},
             },
-            "required": ["text_id", "text", "x", "y", "text_size"],
+            "required": ["text_id", "text", "x", "y"],
         },
         func=write_on_board,
     ),
     TutorTool(
         name="delete_item",
-        description="Delete a board item from the tutor canvas.",
+        description="Delete a single board item by ID from the tutor canvas. Use this to remove an incorrect shape, label, or annotation.",
         parameters={
             "type": "OBJECT",
             "properties": {
@@ -92,7 +92,7 @@ TUTOR_TOOLS: list[TutorTool] = [
     ),
     TutorTool(
         name="move_item",
-        description="Move a board item to a new location.",
+        description="Move an existing board item to a new x/y position. Use this to align a diagram, reposition text, or tidy the board.",
         parameters={
             "type": "OBJECT",
             "properties": {
@@ -106,7 +106,7 @@ TUTOR_TOOLS: list[TutorTool] = [
     ),
     TutorTool(
         name="adjust_item_size",
-        description="Resize an existing board item.",
+        description="Resize an existing board item on the tutor canvas. Use this to stretch a shape, enlarge a text box, or emphasize part of a diagram.",
         parameters={
             "type": "OBJECT",
             "properties": {
@@ -120,13 +120,14 @@ TUTOR_TOOLS: list[TutorTool] = [
     ),
     TutorTool(
         name="draw_line",
-        description="Draw a straight line on the tutor whiteboard.",
+        description="Draw a straight line on the tutor whiteboard. Use this for axes, separators, connectors, or emphasis lines.",
         parameters={
             "type": "OBJECT",
             "properties": {
                 "line_id": {"type": "STRING"},
                 "x": {"type": "INTEGER"},
                 "y": {"type": "INTEGER"},
+                "line_type": {"type": "STRING"},
             },
             "required": ["line_id", "x", "y"],
         },

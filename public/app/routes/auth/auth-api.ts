@@ -1,5 +1,6 @@
 const LOCAL_API_URL = "http://localhost:8001/api/v1";
 //const PRODUCTION_API_URL = "https://kamara-v0-1.onrender.com/api/v1";
+//const PRODUCTION_API_URL = "https://kamsi-xza9.onrender.com/api/v1"
 const PRODUCTION_API_URL = "https://kamsi-xza9.onrender.com/api/v1"
 
 function getBaseUrl() {

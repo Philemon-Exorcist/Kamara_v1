@@ -156,7 +156,7 @@ async def run_syllabus_designer(message: str, user_id: str = "course-generator")
         temperature=0.2,               # Low temperature guarantees analytical, non-hallucinated curriculum data
         response_mime_type="application/json",
         response_schema=SyllabusResponseSchema,  # NATIVE server-level structural enforcement hook
-        tools=[types.Tool(google_search=types.GoogleSearch())]
+        #tools=[types.Tool(google_search=types.GoogleSearch())]
     )
 
     try:

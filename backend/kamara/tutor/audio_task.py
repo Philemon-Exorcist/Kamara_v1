@@ -31,7 +31,9 @@ async def forward_frontend_mic_to_gemini(frontend_ws: WebSocket, gemini_session)
     try:
         while True:
             data = await frontend_ws.receive_bytes()
-            await gemini_session.send(input={"media_chunks": [{"data": data, "mime_type": "audio/pcm"}]})
+            await gemini_session.send_realtime_input(
+                audio=types.Blob(data=data, mime_type="audio/pcm;rate=16000")
+            )
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -101,11 +103,11 @@ async def receive_gemini_stream_and_relay(frontend_ws: WebSocket, student_uuid: 
                         )
 
                         try:
-                            await gemini_session.send(
-                                input=types.LiveClientToolResponse(
-                                    function_responses=[
-                                        types.FunctionResponse(name=tool_name, id=call_id, response=result)
-                                    ]
+                            await gemini_session.send_tool_response(
+                                function_responses=types.FunctionResponse(
+                                    name=tool_name,
+                                    id=call_id,
+                                    response=result,
                                 )
                             )
                         except Exception as exc:

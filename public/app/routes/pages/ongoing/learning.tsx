@@ -331,6 +331,10 @@ export default function DashboardPage() {
         try {
           const payload = JSON.parse(event.data);
 
+          if (payload && typeof payload === "object" && "action" in payload && !("type" in payload)) {
+            return;
+          }
+
           if (payload.type === "system_status") {
             pushTutorEvent({ type: payload.type, title: payload.content });
             console.log(payload.content);

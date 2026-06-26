@@ -11,7 +11,7 @@ async def write_on_board(
     text: str, 
     x: int, 
     y: int, 
-   # text_size: int,
+    text_size: int | None = None,
     tool_context=None  # 🧠 Framework context hook injected automatically by Google ADK
 ) -> dict:
     """
@@ -33,9 +33,11 @@ async def write_on_board(
             "text": text,
             "x": x,
             "y": y,
-            #"size": text_size
         }
     }
+
+    if text_size is not None:
+        payload["data"]["size"] = text_size
     
     try:
         # 🚨 FIX 2: Pass both the message AND the student_id to the manager

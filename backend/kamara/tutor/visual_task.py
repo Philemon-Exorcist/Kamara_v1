@@ -44,6 +44,15 @@ def get_gemini_client() -> genai.Client:
     """Create and cache a Gemini client only when the tutor actually needs it."""
     return genai.Client(api_key=_resolve_gemini_api_key(), http_options=_build_http_options())
 
+
+@lru_cache(maxsize=1)
+def get_live_gemini_client() -> genai.Client:
+    """Create a Live-capable client using the API version the live endpoint expects."""
+    live_http_options = types.HttpOptions(
+        api_version=os.getenv("KAMARA_TUTOR_API_VERSION", "v1alpha"),
+    )
+    return genai.Client(api_key=_resolve_gemini_api_key(), http_options=live_http_options)
+
 # will check this function
 def get_tutor_system_instruction(syllabus_rows: list, tutor_brief: str = "") -> str:
     """Combines static skills.md with dynamic syllabus rows for Gemini Live initialization"""
