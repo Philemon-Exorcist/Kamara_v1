@@ -136,7 +136,25 @@ async def live_classroom_session_stream(websocket: WebSocket, token: str = Query
                     break
 
             elif "bytes" in frame and tutor_session:
-                await tutor_session.send_audio(frame["bytes"])
+                try:
+                    await tutor_session.send_audio(frame["bytes"])
+                except Exception as exc:
+                    message = str(exc)
+                    if "keepalive ping timeout" in message or "ConnectionClosed" in message:
+                        message = (
+                            "Gemini Live audio connection timed out while streaming microphone input. "
+                            "Please reconnect the tutor call."
+                        )
+
+                    logger.error("Tutor audio stream failed: %s", str(exc), exc_info=True)
+                    await websocket.send_json(
+                        {
+                            "type": "system_error",
+                            "content": "Tutor audio stream failed.",
+                            "detail": message,
+                        }
+                    )
+                    break
 
     except WebSocketDisconnect:
         logger.info("Connection dropped by student close event.")

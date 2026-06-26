@@ -237,7 +237,24 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
       }
 
       try {
-        applyBoardCommand(editor, JSON.parse(event.data) as BoardCommand);
+        const payload = JSON.parse(event.data) as Partial<BoardCommand> & { type?: string; action?: string };
+
+        if (!payload || typeof payload !== 'object' || !('action' in payload)) {
+          return;
+        }
+
+        if (
+          payload.action !== 'draw_shape' &&
+          payload.action !== 'write_text' &&
+          payload.action !== 'move_shape' &&
+          payload.action !== 'resize_item' &&
+          payload.action !== 'delete_shape' &&
+          payload.action !== 'clear_board'
+        ) {
+          return;
+        }
+
+        applyBoardCommand(editor, payload as BoardCommand);
       } catch (error) {
         console.error('Could not apply tutor board command', error);
       }

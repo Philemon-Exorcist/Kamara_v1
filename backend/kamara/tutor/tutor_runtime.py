@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from google.genai import types
+from google.genai import errors as genai_errors
 
 from connection.connect_manager import manager
 from .tutor_agent import TUTOR_TOOL_MAP
@@ -83,11 +84,15 @@ class TutorLiveSession:
         if not self.tutor_brief.strip():
             await self.prepare_brief()
 
-        config = get_live_connect_config(self.syllabus_rows, tutor_brief=self.tutor_brief)
         last_error: Exception | None = None
 
         for model_name in get_tutor_live_model_candidates():
             try:
+                config = get_live_connect_config(
+                    model_name=model_name,
+                    syllabus_rows=self.syllabus_rows,
+                    tutor_brief=self.tutor_brief,
+                )
                 self._client_cm = self._client.aio.live.connect(model=model_name, config=config)
                 self._live_session = await self._client_cm.__aenter__()
                 self._active_model = model_name
@@ -97,6 +102,7 @@ class TutorLiveSession:
                     self.session_id,
                     model_name,
                 )
+                await self._send_welcome_turn()
                 return
             except Exception as exc:
                 last_error = exc
@@ -200,8 +206,12 @@ class TutorLiveSession:
 
                         inline_data = getattr(part, "inline_data", None)
                         if inline_data and getattr(inline_data, "data", None):
-                            await manager.send_binary_audio(
-                                inline_data.data,
+                            await manager.send_json_message(
+                                {
+                                    "type": "assistant_audio",
+                                    "mime_type": getattr(inline_data, "mime_type", None),
+                                    "data": base64.b64encode(inline_data.data).decode("ascii"),
+                                },
                                 self.student_uuid,
                             )
 
@@ -276,6 +286,24 @@ class TutorLiveSession:
                         )
         except asyncio.CancelledError:
             pass
+        except genai_errors.APIError as exc:
+            if getattr(exc, "status_code", None) == 1000 or "1000" in str(exc):
+                logger.info(
+                    "Tutor Live session closed cleanly for student=%s session=%s model=%s",
+                    self.student_uuid,
+                    self.session_id,
+                    self._active_model,
+                )
+                return
+
+            if not self._closing:
+                logger.error(
+                    "Tutor relay loop API error for student=%s session=%s: %s",
+                    self.student_uuid,
+                    self.session_id,
+                    str(exc),
+                    exc_info=True,
+                )
         except Exception as exc:
             if not self._closing:
                 logger.error(
@@ -287,6 +315,29 @@ class TutorLiveSession:
                 )
         finally:
             release_tutor_session(self.student_uuid, self.session_id)
+
+    async def _send_welcome_turn(self) -> None:
+        """Kick off a tiny first turn so the model speaks immediately after connect."""
+        if not self._live_session:
+            return
+
+        try:
+            await self._live_session.send_client_content(
+                turns=types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(
+                            text=(
+                                "Greet the student with one short sentence and wait for their audio. "
+                                "Keep the response brief."
+                            )
+                        )
+                    ],
+                ),
+                turn_complete=True,
+            )
+        except Exception as exc:
+            logger.debug("Tutor welcome turn could not be sent: %s", str(exc), exc_info=True)
 
 
 class _TutorToolContext:

@@ -1,4 +1,3 @@
-
 # app/connection/gemini_stream.py
 import json
 import logging
@@ -10,6 +9,7 @@ from google import genai
 from google.genai import types
 
 logger = logging.getLogger("KamaraLogger")
+
 
 def _resolve_gemini_api_key() -> str:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -34,8 +34,13 @@ def _build_http_options() -> types.HttpOptions | None:
         async_client_args=shared_http_args,
     )
 
-
-TUTOR_LIVE_MODEL = os.getenv("KAMARA_TUTOR_MODEL", "gemini-live-2.5-flash-preview")
+"""
+TUTOR_LIVE_MODEL = os.getenv(
+    "KAMARA_TUTOR_MODEL",
+    "gemini-2.5-flash-native-audio-preview-12-2025",
+)
+"""
+TUTOR_LIVE_MODEL = "gemini-live-2.5-flash-native-audio"
 TUTOR_BACKGROUND_MODEL = os.getenv("KAMARA_TUTOR_TEXT_MODEL", "gemini-2.5-flash")
 
 
@@ -53,7 +58,7 @@ def get_live_gemini_client() -> genai.Client:
     )
     return genai.Client(api_key=_resolve_gemini_api_key(), http_options=live_http_options)
 
-# will check this function
+
 def get_tutor_system_instruction(syllabus_rows: list, tutor_brief: str = "") -> str:
     """Combines static skills.md with dynamic syllabus rows for Gemini Live initialization"""
     skills_path = Path(__file__).resolve().parents[2] / "skills" / "Maths_Skills.md"
@@ -86,10 +91,11 @@ def get_tutor_system_instruction(syllabus_rows: list, tutor_brief: str = "") -> 
         "to visually witness what is rendered on the student's monitor screen, and coordinate your whiteboard tools to match."
     )
 
-def get_live_connect_config(syllabus_rows: list, tutor_brief: str = "") -> types.LiveConnectConfig:
+
+def get_live_connect_config(model_name: str, syllabus_rows: list, tutor_brief: str = "") -> types.LiveConnectConfig:
     """Compiles the official Google GenAI configuration layout including tools and vision"""
     from .tutor_agent import TUTOR_TOOLS
-    
+
     master_instruction = get_tutor_system_instruction(syllabus_rows, tutor_brief=tutor_brief)
     function_declarations = [
         declaration
@@ -97,32 +103,26 @@ def get_live_connect_config(syllabus_rows: list, tutor_brief: str = "") -> types
         if (declaration := tool._get_declaration()) is not None
     ]
 
+    response_modalities = [types.Modality.AUDIO]
+    if "native-audio" not in model_name:
+        response_modalities = [types.Modality.AUDIO, types.Modality.TEXT]
+
     return types.LiveConnectConfig(
-        # 🚨 AUDIO for voice, TEXT allows Gemini to return JSON whiteboard tool frames
-        response_modalities=[types.Modality.AUDIO, types.Modality.TEXT], 
+        response_modalities=response_modalities,
         system_instruction=types.Content(
             parts=[types.Part.from_text(text=master_instruction)]
         ),
-        # Pass our type-safe canvas drawing tools straight into the live stream context
-        tools=[types.Tool(function_declarations=function_declarations)]
+        tools=[types.Tool(function_declarations=function_declarations)],
     )
 
 
 def get_tutor_live_model_candidates() -> list[str]:
-    """Return preferred live model names with safe fallbacks."""
-    preferred = os.getenv("KAMARA_TUTOR_MODEL", "gemini-live-2.5-flash-preview")
-    candidates = [
-        preferred,
-        "gemini-live-2.5-flash-preview",
-        "gemini-2.0-flash-live-preview-04-09",
-    ]
-
-    unique_candidates: list[str] = []
-    for candidate in candidates:
-        if candidate and candidate not in unique_candidates:
-            unique_candidates.append(candidate)
-
-    return unique_candidates
+    """Return the preferred live model name."""
+    preferred = os.getenv(
+        "KAMARA_TUTOR_MODEL",
+        "gemini-2.5-flash-native-audio-preview-12-2025",
+    )
+    return [preferred]
 
 
 def build_tutor_background_prompt(syllabus_rows: list) -> str:

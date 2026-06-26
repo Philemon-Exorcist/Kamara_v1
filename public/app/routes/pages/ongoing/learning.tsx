@@ -44,6 +44,12 @@ type TutorEvent = {
   detail?: string;
 };
 
+type AssistantAudioPayload = {
+  type: "assistant_audio";
+  mime_type?: string | null;
+  data: string;
+};
+
 const fallbackModules = placeholderModules;
 
 const WS_BASE_URL =
@@ -97,6 +103,44 @@ function getStoredGeneratedSessionId() {
   }
 }
 
+function base64ToUint8Array(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes;
+}
+
+function parseSampleRate(mimeType?: string | null) {
+  const match = mimeType?.match(/rate=(\d+)/i);
+  return match?.[1] ? Number(match[1]) : 24000;
+}
+
+function decodePcm16ToAudioBuffer(context: AudioContext, bytes: Uint8Array, sampleRate: number) {
+  const sampleCount = Math.floor(bytes.byteLength / 2);
+  const audioBuffer = context.createBuffer(1, sampleCount, sampleRate);
+  const channel = audioBuffer.getChannelData(0);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const sample = view.getInt16(index * 2, true);
+    channel[index] = sample < 0 ? sample / 0x8000 : sample / 0x7fff;
+  }
+
+  return audioBuffer;
+}
+
+function isWavAudio(bytes: Uint8Array) {
+  return (
+    bytes.byteLength >= 12 &&
+    String.fromCharCode(bytes[0] ?? 0, bytes[1] ?? 0, bytes[2] ?? 0, bytes[3] ?? 0) === "RIFF" &&
+    String.fromCharCode(bytes[8] ?? 0, bytes[9] ?? 0, bytes[10] ?? 0, bytes[11] ?? 0) === "WAVE"
+  );
+}
+
 export function meta() {
   return [
     { title: "Learning | Kamara AI" },
@@ -127,6 +171,8 @@ export default function DashboardPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const assistantAudioContextRef = useRef<AudioContext | null>(null);
+  const assistantAudioNextTimeRef = useRef<number>(0);
   const boardSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -209,6 +255,70 @@ export default function DashboardPage() {
     }
   };
 
+  const ensureAssistantAudioContext = async () => {
+    if (!assistantAudioContextRef.current) {
+      assistantAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+    }
+
+    if (assistantAudioContextRef.current.state === "suspended") {
+      await assistantAudioContextRef.current.resume();
+    }
+
+    if (assistantAudioNextTimeRef.current === 0) {
+      assistantAudioNextTimeRef.current = assistantAudioContextRef.current.currentTime;
+    }
+
+    return assistantAudioContextRef.current;
+  };
+
+  const stopAssistantAudio = () => {
+    assistantAudioNextTimeRef.current = 0;
+
+    assistantAudioContextRef.current?.close().catch(() => undefined);
+    assistantAudioContextRef.current = null;
+  };
+
+  const playAssistantAudio = async (payload: AssistantAudioPayload) => {
+    if (!payload.data) {
+      return;
+    }
+
+    try {
+      const context = await ensureAssistantAudioContext();
+      const bytes = base64ToUint8Array(payload.data);
+      const mimeType = payload.mime_type?.toLowerCase() ?? "";
+
+      if (isWavAudio(bytes) || (mimeType && mimeType !== "" && !mimeType.includes("pcm"))) {
+        const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        try {
+          const decoded = await context.decodeAudioData(arrayBuffer);
+          const source = context.createBufferSource();
+          source.buffer = decoded;
+          source.connect(context.destination);
+
+          const startTime = Math.max(context.currentTime, assistantAudioNextTimeRef.current);
+          source.start(startTime);
+          assistantAudioNextTimeRef.current = startTime + decoded.duration;
+          return;
+        } catch {
+          // Fall back to PCM decoding below if the model sent raw PCM bytes.
+        }
+      }
+
+      const sampleRate = parseSampleRate(payload.mime_type);
+      const buffer = decodePcm16ToAudioBuffer(context, bytes, sampleRate);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+
+      const startTime = Math.max(context.currentTime, assistantAudioNextTimeRef.current);
+      source.start(startTime);
+      assistantAudioNextTimeRef.current = startTime + buffer.duration;
+    } catch (error) {
+      console.error("Could not play assistant audio:", error);
+    }
+  };
+
   const pushTutorEvent = (event: TutorEvent) => {
     setTutorEvents((current) => [event, ...current].slice(0, 8));
   };
@@ -232,6 +342,7 @@ export default function DashboardPage() {
   const disconnectTutorSession = () => {
     clearBoardSnapshotTimer();
     stopMicStream();
+    stopAssistantAudio();
 
     const socket = tutorSocketRef.current;
     tutorSocketRef.current = null;
@@ -311,6 +422,7 @@ export default function DashboardPage() {
       socket.onopen = () => {
         setIsTutorConnected(true);
         setIsTutorConnecting(false);
+        void ensureAssistantAudioContext();
 
         socket.send(
           JSON.stringify({
@@ -357,6 +469,11 @@ export default function DashboardPage() {
               title: "Tutor said something",
               detail: payload.content,
             });
+            return;
+          }
+
+          if (payload.type === "assistant_audio") {
+            void playAssistantAudio(payload as AssistantAudioPayload);
             return;
           }
 
@@ -447,6 +564,7 @@ export default function DashboardPage() {
 
     if (isRecording || isMicConnecting) {
       stopMicStream();
+      stopAssistantAudio();
       return;
     }
 
