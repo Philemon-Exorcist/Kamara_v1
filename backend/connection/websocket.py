@@ -70,9 +70,57 @@ async def live_classroom_session_stream(websocket: WebSocket, token: str = Query
                             .execute()
                         )
 
-                        if not db_modules.data:
+                        syllabus_rows = list(db_modules.data or [])
+
+                        if not syllabus_rows:
+                            library_rows = (
+                                get_supabase_admin()
+                                .table("library")
+                                .select("title, body_text, content_type")
+                                .eq("session_id", active_session_id)
+                                .eq("student_id", student_uuid)
+                                .eq("content_type", "ai_module")
+                                .order("created_at")
+                                .execute()
+                            )
+
+                            syllabus_rows = [
+                                {
+                                    "sub_topic": row.get("title") or f"Module {index}",
+                                    "teaching_guidelines": row.get("body_text") or "",
+                                }
+                                for index, row in enumerate(library_rows.data or [], start=1)
+                            ]
+
+                        if not syllabus_rows:
                             logger.warning(
-                                "No active classroom syllabus modules found for session %s; connecting tutor with empty syllabus.",
+                                "No tutor syllabus rows were found in modules or library for session %s; trying session notes fallback.",
+                                active_session_id,
+                            )
+
+                            session_notes = (
+                                get_supabase_admin()
+                                .table("sessions")
+                                .select("generated_notes, subject, topic")
+                                .eq("id", active_session_id)
+                                .eq("student_id", student_uuid)
+                                .maybe_single()
+                                .execute()
+                            )
+
+                            session_data = session_notes.data or {}
+                            generated_notes = session_data.get("generated_notes") or ""
+                            if generated_notes:
+                                syllabus_rows = [
+                                    {
+                                        "sub_topic": session_data.get("topic") or session_data.get("subject") or "Tutor Overview",
+                                        "teaching_guidelines": generated_notes,
+                                    }
+                                ]
+
+                        if not syllabus_rows:
+                            logger.warning(
+                                "No active classroom syllabus content found for session %s; connecting tutor with empty syllabus.",
                                 active_session_id,
                             )
 
@@ -80,7 +128,7 @@ async def live_classroom_session_stream(websocket: WebSocket, token: str = Query
                             student_uuid=str(student_uuid),
                             session_id=active_session_id,
                             frontend_ws=websocket,
-                            syllabus_rows=db_modules.data,
+                            syllabus_rows=syllabus_rows,
                         )
 
                         tutor_brief = await tutor_session.prepare_brief()
