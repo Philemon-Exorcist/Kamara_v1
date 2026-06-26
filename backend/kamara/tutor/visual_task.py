@@ -86,7 +86,9 @@ def get_tutor_system_instruction(syllabus_rows: list, tutor_brief: str = "") -> 
         "======================================================================\n\n"
         f"{brief_block}"
         "EXECUTION INSTRUCTION:\n"
-        "Immediately speak out loud to welcome the student. Keep your responses short (under 15 words). "
+        "As soon as the live session connects, speak immediately with a short greeting. "
+        "Do not wait for the student to speak first. Keep the opening under 15 words. "
+        "After the greeting, pause and invite the student to respond. "
         "Monitor incoming 'board_snapshot' text payloads and 'board_vision_frame' image stream chunks "
         "to visually witness what is rendered on the student's monitor screen, and coordinate your whiteboard tools to match."
     )
