@@ -1,0 +1,206 @@
+import { useCallback, useEffect, useRef } from "react";
+import { type Editor, type TLGeoShape, type TLShapeId, Tldraw, createShapeId, toRichText } from "tldraw";
+import "tldraw/tldraw.css";
+
+export type BoardCommand =
+  | {
+      action: "draw_shape";
+      data: {
+        id: string;
+        shape: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    }
+  | {
+      action: "write_text";
+      data: {
+        id: string;
+        text: string;
+        x: number;
+        y: number;
+      };
+    }
+  | {
+      action: "move_shape";
+      data: {
+        shapeId: string;
+        x: number;
+        y: number;
+      };
+    }
+  | {
+      action: "resize_item";
+      data: {
+        shapeId: string;
+        width: number;
+        height: number;
+      };
+    }
+  | {
+      action: "delete_shape";
+      data: {
+        shapeId: string;
+      };
+    }
+  | {
+      action: "clear_board";
+    }
+  | {
+      action: "draw_line";
+      data: {
+        id: string;
+        x: number;
+        y: number;
+        line_type?: string;
+      };
+    };
+
+export type LiveBoardProps = {
+  sessionId?: string;
+  onEditorReady?: (editor: Editor | null) => void;
+};
+
+function getShapeId(id: string): TLShapeId {
+  return id.startsWith("shape:") ? (id as TLShapeId) : createShapeId(id);
+}
+
+function getGeoShape(shape: string): TLGeoShape["props"]["geo"] {
+  switch (shape) {
+    case "circle":
+    case "ellipse":
+      return "ellipse";
+    case "triangle":
+      return "triangle";
+    case "diamond":
+      return "diamond";
+    case "rectangle":
+    case "rect":
+    case "square":
+    default:
+      return "rectangle";
+  }
+}
+
+export function applyBoardCommand(editor: Editor, command: BoardCommand) {
+  switch (command.action) {
+    case "draw_shape": {
+      const id = getShapeId(command.data.id);
+
+      editor.createShape({
+        id,
+        type: "geo",
+        x: command.data.x,
+        y: command.data.y,
+        props: {
+          geo: getGeoShape(command.data.shape),
+          w: command.data.width,
+          h: command.data.height,
+          fill: "none",
+          color: "blue",
+          richText: toRichText(""),
+        },
+      });
+      break;
+    }
+
+    case "write_text": {
+      const id = getShapeId(command.data.id.replace(/^text:/, "text-"));
+
+      editor.createShape({
+        id,
+        type: "text",
+        x: command.data.x,
+        y: command.data.y,
+        props: {
+          richText: toRichText(command.data.text),
+          autoSize: true,
+          color: "black",
+        },
+      });
+      break;
+    }
+
+    case "move_shape": {
+      const id = getShapeId(command.data.shapeId);
+      const shape = editor.getShape(id);
+      if (shape) {
+        editor.updateShape({ id, type: shape.type, x: command.data.x, y: command.data.y });
+      }
+      break;
+    }
+
+    case "resize_item": {
+      const id = getShapeId(command.data.shapeId);
+      const shape = editor.getShape(id);
+      if (shape?.type === "geo") {
+        editor.updateShape({
+          id,
+          type: "geo",
+          props: {
+            w: command.data.width,
+            h: command.data.height,
+          },
+        });
+      }
+      break;
+    }
+
+    case "delete_shape": {
+      const id = getShapeId(command.data.shapeId);
+      if (editor.getShape(id)) {
+        editor.deleteShapes([id]);
+      }
+      break;
+    }
+
+    case "clear_board": {
+      editor.deleteShapes([...editor.getCurrentPageShapeIds()]);
+      break;
+    }
+
+    case "draw_line": {
+      const id = getShapeId(command.data.id);
+
+      editor.createShapes([
+        {
+          id,
+          type: "line",
+          x: command.data.x,
+          y: command.data.y,
+          props: {
+            scale: 1,
+          },
+        },
+      ]);
+      break;
+    }
+  }
+}
+
+export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
+  const editorRef = useRef<Editor | null>(null);
+
+  const handleMount = useCallback(
+    (editor: Editor) => {
+      editorRef.current = editor;
+      onEditorReady?.(editor);
+    },
+    [onEditorReady]
+  );
+
+  useEffect(() => {
+    return () => {
+      onEditorReady?.(null);
+      editorRef.current = null;
+    };
+  }, [onEditorReady]);
+
+  return (
+    <div style={{ width: "100%", height: "100%", minHeight: 400 }}>
+      <Tldraw onMount={handleMount} />
+    </div>
+  );
+}

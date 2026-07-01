@@ -14,7 +14,7 @@ const WS_BASE_URL =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'ws://localhost:8001/ws/api/v1'
     : 'wss://kamsi-xza9.onrender.com/ws/api/v1';
-
+// will add cloud run url 
 type BoardCommand =
   | {
       action: 'draw_shape';
@@ -60,6 +60,15 @@ type BoardCommand =
     }
   | {
       action: 'clear_board';
+    }
+  | {
+      action: 'draw_line';
+      data: {
+        id: string;
+        x: number;
+        y: number;
+        line_type?: string;
+      };
     };
 
 type TldrawComponentProps = {
@@ -191,6 +200,23 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
       editor.deleteShapes([...editor.getCurrentPageShapeIds()]);
       break;
     }
+
+    case 'draw_line': {
+      const id = getShapeId(command.data.id);
+
+      editor.createShapes([
+        {
+          id,
+          type: 'line',
+          x: command.data.x,
+          y: command.data.y,
+          props: {
+            scale: 1,
+          },
+        },
+      ]);
+      break;
+    }
   }
 }
 
@@ -219,7 +245,9 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
       return;
     }
 
-    const socket = new WebSocket(`${WS_BASE_URL}/live?token=${encodeURIComponent(token)}`);
+    const socket = new WebSocket(
+      `${WS_BASE_URL}/live?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(activeSessionId)}`
+    );
     socketRef.current = socket;
 
     socket.addEventListener('open', () => {
@@ -249,7 +277,8 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
           payload.action !== 'move_shape' &&
           payload.action !== 'resize_item' &&
           payload.action !== 'delete_shape' &&
-          payload.action !== 'clear_board'
+          payload.action !== 'clear_board' &&
+          payload.action !== 'draw_line'
         ) {
           return;
         }

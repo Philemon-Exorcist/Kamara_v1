@@ -11,17 +11,15 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-
+from app.auth import verify_student_token
+from app.supabase_client import get_supabase_admin
+from kamara.writer.writer import _fallback_syllabus, run_syllabus_designer
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("missing gemini api key")
-
-from app.auth import verify_student_token
-from app.supabase_client import get_supabase_admin
-from kamara.writer.writer import _fallback_syllabus, run_syllabus_designer
 
 logger = logging.getLogger("KamaraLogger")
 course_router = APIRouter(prefix="/api/v1", tags=["Course Pipeline"])
@@ -51,7 +49,7 @@ def _public_generation_error(error: Exception) -> str:
 async def generate_course_modules(
     payload: CourseInitializationRequest,
     current_user: dict = Depends(verify_student_token),
-):
+):# want to use this kind of system to get user id 
     """
     Streaming pipeline that extracts text from uploaded materials, runs the writer
     agent, stores generated modules, and emits live progress updates.
@@ -168,20 +166,6 @@ async def generate_course_modules(
                     "body_text": compiled_body,
                 }).execute()
 
-            # Some deployments do not have a `status` column on sessions yet.
-            # Only persist fields that are known to exist across the current schema.
-            try:
-                supabase.table("sessions").update({
-                    "total_modules": len(modules_list),
-                }).eq("id", session_id).execute()
-            except Exception as update_error:
-                logger.warning(
-                    "Skipping session summary update because the schema is missing a supported field: %s",
-                    str(update_error),
-                )
-
-            yield f"data: {json.dumps({'status': 'success', 'message': 'Course generated successfully! Redirecting to classroom...', 'session_id': str(session_id)})}\n\n"
-            finished_successfully = True
 
         except Exception as err:
             logger.error("COURSE ROUTE FAILURE: %s", str(err), exc_info=True)

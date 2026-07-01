@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import List
 from pydantic import BaseModel, Field
@@ -30,6 +31,11 @@ if not api_key:
 logger = logging.getLogger("KamaraLogger")
 # Lock to a supported model so older environment values cannot force 404s.
 WRITER_MODEL = "gemini-2.5-flash"
+
+
+@lru_cache(maxsize=1)
+def get_writer_client() -> genai.Client:
+    return genai.Client(api_key=api_key)
 
 # =====================================================================
 # STRUCTURAL PYDANTIC DATA SCHEMAS FOR DATABASE INSERTION
@@ -56,11 +62,6 @@ try:
 except Exception as e:
     skills_instruction_block = "Apply advanced curriculum writing and markdown skills."
 
-
-# Declare your tools directly as functions in the GenerateContentConfig array.
-# The core SDK reads their Python typings and docstrings automatically.
-#from .writer_tools.research import google_search_curriculum, fetch_academic_benchmarks
-#WRITER_TOOLS = [google_search_curriculum, fetch_academic_benchmarks]
 
 
 MASTER_WRITER_INSTRUCTION = (
@@ -107,6 +108,7 @@ def _fallback_syllabus(message: str) -> SyllabusResponseSchema:
                 "circle each formula or rule when it first appears, and end with a short checkpoint question."
             ),
         ),
+
         ModuleStepSchema(
             sub_topic="Practice pathway and mastery checks",
             teaching_guidelines=(
@@ -145,36 +147,30 @@ def _fallback_syllabus(message: str) -> SyllabusResponseSchema:
 async def run_syllabus_designer(message: str, user_id: str = "course-generator") -> SyllabusResponseSchema:
     """
     Agent 2 (The Writer Agent): Compiles structured syllabus plans and markdown textbook 
-    handout data files out-of-band using the type-safe core google-genai SDK framework.
-    """
-
-    client = genai.Client(api_key=api_key)
-
-    # 2. Package your structural content configuration payload rules
-    config = types.GenerateContentConfig(
-        system_instruction=MASTER_WRITER_INSTRUCTION,
-        temperature=0.2,               # Low temperature guarantees analytical, non-hallucinated curriculum data
-        response_mime_type="application/json",
-        response_schema=SyllabusResponseSchema,  # NATIVE server-level structural enforcement hook
-        #tools=[types.Tool(google_search=types.GoogleSearch())]
-    )
-
-    try:
-        logger.info(f"🧬 Initializing core GenAI Writer Engine for designer instance: {user_id}")
-        logger.info("Writer model selected: %s", WRITER_MODEL)
-        
-        # 3. Request structural generation directly from the asynchronous client wrapper layer
-        response = await client.aio.models.generate_content(
-            model=WRITER_MODEL,
-            contents=message,
-            config=config
-        )
-
-        if not response.text:
-            raise ValueError("Google GenAI client returned a null or empty text payload response string.")
+    handout 
 
         # 4. Safely parse verified raw JSON structures directly back into your destination target schema
-        return SyllabusResponseSchema.model_validate_json(response.text)
+    """
+    try:
+        prompt = (
+            f"{MASTER_WRITER_INSTRUCTION}\n\n"
+            f"REQUEST:\n{message}\n\n"
+            "Return a JSON object with exactly two keys: modules and textbook_handout_notes."
+        )
+        response = await get_writer_client().aio.models.generate_content(
+            model=WRITER_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=SyllabusResponseSchema,
+            ),
+        )
+
+        if response.text:
+            return SyllabusResponseSchema.model_validate_json(response.text)
+
+        if getattr(response, "parsed", None) is not None:
+            return response.parsed
 
     except Exception as e:
         logger.error("Core Google GenAI SDK Writer failed; rolling over to local static fallback definitions: %s", str(e), exc_info=True)

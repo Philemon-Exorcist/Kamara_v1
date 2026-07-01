@@ -23,8 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("KamaraLogger")
 
 
-
-#
+# check if the frontend can send raw audio and if it is also configured to receive audio
 app = FastAPI(title="AI Agentic Microservice")
 
 # Cross-Origin resource allowances so React client can fetch records securely
@@ -94,7 +93,6 @@ app.include_router(waitlist_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)
 app.include_router(course_router)
-
 app.include_router(socket_router) # websocket router
 
 if __name__ == "__main__":

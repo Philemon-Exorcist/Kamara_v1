@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { type Editor, serializeTldrawJson } from "tldraw";
 
-import TldrawComponent from "../dash-component/tldraw";
+import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
 import { getGeneratedCourseStorageKey } from "../course-api";
 
@@ -141,6 +141,55 @@ function isWavAudio(bytes: Uint8Array) {
   );
 }
 
+function downsampleBuffer(inputBuffer: Float32Array, sourceRate: number, targetRate = 16000) {
+  if (targetRate === sourceRate) {
+    return inputBuffer;
+  }
+
+  const ratio = sourceRate / targetRate;
+  const newLength = Math.round(inputBuffer.length / ratio);
+  const result = new Float32Array(newLength);
+
+  let sourceOffset = 0;
+  for (let index = 0; index < newLength; index += 1) {
+    const nextSourceOffset = Math.round((index + 1) * ratio);
+    let sum = 0;
+    let count = 0;
+
+    for (let cursor = sourceOffset; cursor < nextSourceOffset && cursor < inputBuffer.length; cursor += 1) {
+      sum += inputBuffer[cursor] ?? 0;
+      count += 1;
+    }
+
+    result[index] = count > 0 ? sum / count : 0;
+    sourceOffset = nextSourceOffset;
+  }
+
+  return result;
+}
+
+function float32To16BitPCM(input: Float32Array) {
+  const buffer = new ArrayBuffer(input.length * 2);
+  const view = new DataView(buffer);
+
+  for (let index = 0; index < input.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, input[index] ?? 0));
+    // PCM16 maps [-1, 1] to signed 16-bit integers. Negative values use 0x8000, positive use 0x7fff.
+    view.setInt16(index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+
+  return buffer;
+}
+
+async function blobToDataUrl(blob: Blob) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read image blob."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function meta() {
   return [
     { title: "Learning | Kamara AI" },
@@ -164,6 +213,7 @@ export default function DashboardPage() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [boardEditor, setBoardEditor] = useState<Editor | null>(null);
   const [tutorEvents, setTutorEvents] = useState<TutorEvent[]>([]);
+  const [tutorNotice, setTutorNotice] = useState<{ type: "info" | "warning" | "error"; message: string } | null>(null);
 
   const moduleSocketRef = useRef<WebSocket | null>(null);
   const tutorSocketRef = useRef<WebSocket | null>(null);
@@ -173,7 +223,9 @@ export default function DashboardPage() {
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const assistantAudioContextRef = useRef<AudioContext | null>(null);
   const assistantAudioNextTimeRef = useRef<number>(0);
+  const assistantAudioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const boardSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micChunkCountRef = useRef(0);
 
   useEffect(() => {
     const storageKey = getGeneratedCourseStorageKey();
@@ -272,10 +324,60 @@ export default function DashboardPage() {
   };
 
   const stopAssistantAudio = () => {
+    assistantAudioSourcesRef.current.forEach((source) => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch {
+        // The source may already be finished or disconnected.
+      }
+    });
+    assistantAudioSourcesRef.current.clear();
     assistantAudioNextTimeRef.current = 0;
 
     assistantAudioContextRef.current?.close().catch(() => undefined);
     assistantAudioContextRef.current = null;
+  };
+
+  const queueAssistantBuffer = async (audioBuffer: AudioBuffer) => {
+    const context = await ensureAssistantAudioContext();
+    const source = context.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(context.destination);
+
+    const startTime = Math.max(context.currentTime, assistantAudioNextTimeRef.current);
+    assistantAudioSourcesRef.current.add(source);
+    source.onended = () => {
+      assistantAudioSourcesRef.current.delete(source);
+    };
+    source.start(startTime);
+    assistantAudioNextTimeRef.current = startTime + audioBuffer.duration;
+  };
+
+  const playAssistantBinaryAudio = async (chunk: ArrayBuffer) => {
+    if (chunk.byteLength === 0) {
+      return;
+    }
+
+    try {
+      const context = await ensureAssistantAudioContext();
+      const bytes = new Uint8Array(chunk);
+
+      if (isWavAudio(bytes)) {
+        try {
+          const decoded = await context.decodeAudioData(chunk.slice(0));
+          await queueAssistantBuffer(decoded);
+          return;
+        } catch {
+          // Fall back to PCM decoding below if the chunk is raw PCM rather than WAV.
+        }
+      }
+
+      const buffer = decodePcm16ToAudioBuffer(context, bytes, 24000);
+      await queueAssistantBuffer(buffer);
+    } catch (error) {
+      console.error("Could not play assistant audio:", error);
+    }
   };
 
   const playAssistantAudio = async (payload: AssistantAudioPayload) => {
@@ -284,36 +386,18 @@ export default function DashboardPage() {
     }
 
     try {
-      const context = await ensureAssistantAudioContext();
       const bytes = base64ToUint8Array(payload.data);
-      const mimeType = payload.mime_type?.toLowerCase() ?? "";
+      const context = await ensureAssistantAudioContext();
 
-      if (isWavAudio(bytes) || (mimeType && mimeType !== "" && !mimeType.includes("pcm"))) {
-        const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-        try {
-          const decoded = await context.decodeAudioData(arrayBuffer);
-          const source = context.createBufferSource();
-          source.buffer = decoded;
-          source.connect(context.destination);
-
-          const startTime = Math.max(context.currentTime, assistantAudioNextTimeRef.current);
-          source.start(startTime);
-          assistantAudioNextTimeRef.current = startTime + decoded.duration;
-          return;
-        } catch {
-          // Fall back to PCM decoding below if the model sent raw PCM bytes.
-        }
+      if (isWavAudio(bytes)) {
+        const decoded = await context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+        await queueAssistantBuffer(decoded);
+        return;
       }
 
       const sampleRate = parseSampleRate(payload.mime_type);
       const buffer = decodePcm16ToAudioBuffer(context, bytes, sampleRate);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-
-      const startTime = Math.max(context.currentTime, assistantAudioNextTimeRef.current);
-      source.start(startTime);
-      assistantAudioNextTimeRef.current = startTime + buffer.duration;
+      await queueAssistantBuffer(buffer);
     } catch (error) {
       console.error("Could not play assistant audio:", error);
     }
@@ -354,7 +438,7 @@ export default function DashboardPage() {
     }
   };
 
-  const sendBoardSnapshot = async () => {
+  const sendCanvasSnapshots = async () => {
     const socket = tutorSocketRef.current;
 
     if (!boardEditor || !socket || socket.readyState !== WebSocket.OPEN) {
@@ -363,11 +447,43 @@ export default function DashboardPage() {
 
     try {
       const snapshot = await serializeTldrawJson(boardEditor);
+      console.info("[Tutor WS] Sending canvas_snapshot_text", {
+        characters: snapshot.length,
+        sessionId: tutorSocketRef.current?.url,
+      });
 
       socket.send(
         JSON.stringify({
-          action: "board_snapshot",
-          snapshot,
+          type: "canvas_snapshot_text",
+          data: snapshot,
+        })
+      );
+
+      const shapeIds = [...boardEditor.getCurrentPageShapeIds()];
+      if (shapeIds.length === 0) {
+        return;
+      }
+
+      const imageResult = await boardEditor.toImage(shapeIds, {
+        bounds: boardEditor.getViewportPageBounds(),
+        format: "png",
+        scale: 1,
+      });
+
+      if (!imageResult?.blob) {
+        return;
+      }
+
+      const image = await blobToDataUrl(imageResult.blob);
+      console.info("[Tutor WS] Sending canvas_snapshot_vision", {
+        imageChars: image.length,
+        sessionId: tutorSocketRef.current?.url,
+      });
+
+      socket.send(
+        JSON.stringify({
+          type: "canvas_snapshot_vision",
+          image,
         })
       );
     } catch (error) {
@@ -382,13 +498,16 @@ export default function DashboardPage() {
 
     clearBoardSnapshotTimer();
     boardSnapshotTimerRef.current = setTimeout(() => {
-      void sendBoardSnapshot();
-    }, 900);
+      void sendCanvasSnapshots();
+    }, 1500);
   };
 
   const connectTutorSession = async () => {
     if (typeof window === "undefined" || !("WebSocket" in window)) {
-      alert("Your browser does not support WebSocket streaming.");
+      setTutorNotice({
+        type: "error",
+        message: "Your browser does not support WebSocket streaming. Try a current browser with microphone support.",
+      });
       return false;
     }
 
@@ -396,12 +515,18 @@ export default function DashboardPage() {
     const sessionId = getGeneratedSessionId(generatedSession) ?? getActiveSessionId() ?? getStoredGeneratedSessionId();
 
     if (!token) {
-      alert("Please sign in again to start the tutor call.");
+      setTutorNotice({
+        type: "error",
+        message: "Your session is missing. Please sign in again before starting the live call.",
+      });
       return false;
     }
 
     if (!sessionId) {
-      alert("No active classroom session was found.");
+      setTutorNotice({
+        type: "warning",
+        message: "No active classroom session was found yet. Generate a course first, then start the call.",
+      });
       return false;
     }
 
@@ -416,14 +541,23 @@ export default function DashboardPage() {
     setIsTutorConnecting(true);
 
     return await new Promise<boolean>((resolve) => {
-      const socket = new WebSocket(`${WS_BASE_URL}/live?token=${encodeURIComponent(token)}`);
+      const socket = new WebSocket(
+        `${WS_BASE_URL}/live?token=${encodeURIComponent(token)}&session_id=${encodeURIComponent(sessionId)}`
+      );
+      socket.binaryType = "arraybuffer";
       tutorSocketRef.current = socket;
 
       socket.onopen = () => {
+        console.info("[Tutor WS] Live websocket opened", {
+          sessionId,
+          socketUrl: socket.url,
+        });
         setIsTutorConnected(true);
         setIsTutorConnecting(false);
-        void ensureAssistantAudioContext();
-
+        setTutorNotice({
+          type: "info",
+          message: "Live call connected. You can now turn on the microphone to speak with the tutor.",
+        });
         socket.send(
           JSON.stringify({
             action: "start_session",
@@ -431,11 +565,30 @@ export default function DashboardPage() {
           })
         );
 
-        void sendBoardSnapshot();
+        // Wake the tutor immediately after the session starts so the UI does not wait for the first spoken word.
+        socket.send(
+          JSON.stringify({
+            type: "canvas_snapshot_text",
+            data: "Student has joined the room. Please speak immediately and give them a warm, short greeting.",
+          })
+        );
+
+        void ensureAssistantAudioContext();
+        void sendCanvasSnapshots();
         resolve(true);
       };
 
       socket.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          void playAssistantBinaryAudio(event.data);
+          return;
+        }
+
+        if (event.data instanceof Blob) {
+          void event.data.arrayBuffer().then((buffer) => playAssistantBinaryAudio(buffer));
+          return;
+        }
+
         if (typeof event.data !== "string") {
           return;
         }
@@ -443,7 +596,8 @@ export default function DashboardPage() {
         try {
           const payload = JSON.parse(event.data);
 
-          if (payload && typeof payload === "object" && "action" in payload && !("type" in payload)) {
+          if (payload?.action === "stop_audio_playback" || payload?.type === "interrupted") {
+            stopAssistantAudio();
             return;
           }
 
@@ -474,6 +628,19 @@ export default function DashboardPage() {
 
           if (payload.type === "assistant_audio") {
             void playAssistantAudio(payload as AssistantAudioPayload);
+            return;
+          }
+
+          if (
+            payload &&
+            typeof payload === "object" &&
+            "action" in payload &&
+            typeof payload.action === "string" &&
+            ["draw_shape", "write_text", "move_shape", "resize_item", "delete_shape", "clear_board", "draw_line"].includes(payload.action)
+          ) {
+            if (boardEditor) {
+              applyBoardCommand(boardEditor, payload as BoardCommand);
+            }
             return;
           }
 
@@ -538,7 +705,7 @@ export default function DashboardPage() {
       }
     );
 
-    void sendBoardSnapshot();
+    void sendCanvasSnapshots();
 
     return () => {
       removeListener();
@@ -558,21 +725,32 @@ export default function DashboardPage() {
 
   const handleMicToggle = async () => {
     if (!isAudioStreamingSupported()) {
-      alert("Your browser does not support audio streaming.");
+      setTutorNotice({
+        type: "error",
+        message: "Your browser does not support audio streaming. Try a different browser with microphone support.",
+      });
       return;
     }
 
     if (isRecording || isMicConnecting) {
       stopMicStream();
       stopAssistantAudio();
+      setTutorNotice(null);
       return;
     }
 
-    const tutorReady = await connectTutorSession();
-    if (!tutorReady || tutorSocketRef.current?.readyState !== WebSocket.OPEN) {
+    if (!isTutorConnected || tutorSocketRef.current?.readyState !== WebSocket.OPEN) {
+      setTutorNotice({
+        type: "warning",
+        message: "Start the live call first, then turn on the microphone to join the session.",
+      });
       return;
     }
 
+    setTutorNotice({
+      type: "info",
+      message: "Requesting microphone access. Your browser may ask for permission to use the mic.",
+    });
     setIsMicConnecting(true);
 
     try {
@@ -590,25 +768,23 @@ export default function DashboardPage() {
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-      const floatTo16BitPCM = (input: Float32Array) => {
-        const buffer = new ArrayBuffer(input.length * 2);
-        const view = new DataView(buffer);
-
-        for (let i = 0; i < input.length; i += 1) {
-          const sample = Math.max(-1, Math.min(1, input[i] ?? 0));
-          view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-        }
-
-        return buffer;
-      };
-
       processor.onaudioprocess = (event) => {
         if (socket.readyState !== WebSocket.OPEN) {
           return;
         }
 
         const input = event.inputBuffer.getChannelData(0);
-        socket.send(floatTo16BitPCM(input));
+        const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
+        socket.send(float32To16BitPCM(downsampled));
+
+        micChunkCountRef.current += 1;
+        if (micChunkCountRef.current % 20 === 0) {
+          console.info("[Tutor WS] Sent mic chunk", {
+            chunkNumber: micChunkCountRef.current,
+            downsampledSamples: downsampled.length,
+            byteLength: downsampled.length * 2,
+          });
+        }
       };
 
       source.connect(processor);
@@ -620,19 +796,31 @@ export default function DashboardPage() {
 
       setIsRecording(true);
       setIsMicConnecting(false);
+      setTutorNotice({
+        type: "info",
+        message: "Microphone is live. Speak normally and the assistant will listen through the call.",
+      });
     } catch (error) {
       console.error("Could not get microphone access:", error);
       stopMicStream();
-      alert("Could not access your microphone. Please check your browser permissions.");
+      setTutorNotice({
+        type: "error",
+        message: "Could not access your microphone. Please allow microphone permission in your browser settings.",
+      });
     }
   };
 
   const handleTutorToggle = async () => {
     if (isTutorConnected || isTutorConnecting) {
       disconnectTutorSession();
+      setTutorNotice(null);
       return;
     }
 
+    setTutorNotice({
+      type: "info",
+      message: "Starting the live call. Once connected, you can enable the microphone from the button beside it.",
+    });
     await connectTutorSession();
   };
 
@@ -689,7 +877,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-[58vh] min-h-[420px]">
-            <TldrawComponent sessionId={getGeneratedSessionId(generatedSession) ?? undefined} onEditorReady={setBoardEditor} />
+            <LiveBoard sessionId={getGeneratedSessionId(generatedSession) ?? undefined} onEditorReady={setBoardEditor} />
           </div>
 
           <div className="border-t border-blue-100 p-4">
@@ -727,6 +915,24 @@ export default function DashboardPage() {
                 {isMicConnecting ? <LoaderCircle size={18} className="animate-spin" /> : isRecording ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
             </form>
+            {tutorNotice && (
+              <div
+                className={`mt-3 rounded-lg border px-4 py-3 text-sm shadow-sm ${
+                  tutorNotice.type === "error"
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : tutorNotice.type === "warning"
+                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                      : "border-blue-200 bg-blue-50 text-blue-900"
+                }`}
+                role={tutorNotice.type === "error" ? "alert" : "status"}
+                aria-live="polite"
+              >
+                <div className="font-semibold">
+                  {tutorNotice.type === "error" ? "Microphone needs attention" : tutorNotice.type === "warning" ? "Microphone not ready yet" : "Mic guidance"}
+                </div>
+                <p className="mt-1 leading-6">{tutorNotice.message}</p>
+              </div>
+            )}
             {tutorEvents.length > 0 && (
               <div className="mt-3 rounded-lg border border-blue-100 bg-slate-50 p-3">
                 <div className="flex items-center justify-between">
