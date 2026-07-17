@@ -128,7 +128,7 @@ async def process_login(payload: UserAuthCredentials):
 async def get_current_auth_user(current_user=Depends(verify_student_token)):
     student_id = current_user.id
     supabase_admin = get_supabase_admin()
-
+# hello
     profile = {}
     try:
         profile_query = supabase_admin.table("profiles")\

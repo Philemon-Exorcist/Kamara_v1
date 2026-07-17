@@ -61,10 +61,10 @@ async def log_incoming_requests(request: Request, call_next):
     
     return response
 
+# add ping for render
 
 
-
-# 🚨 ADD THIS GET REQUEST CONFIRMATION ROUTE HERE:
+# 🚨 ADD THIS GET REQUEST CONFIRMATION ROUTE HER E:
 @app.get("/")
 @app.get("/health")
 @app.get("/health-check")
