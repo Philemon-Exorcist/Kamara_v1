@@ -12,6 +12,7 @@ from connection.websocket import socket_router
 from pages.profile import profile_router
 from pages.dashboard import dashboard_router
 from pages.courses import course_router
+from core.cron import register_background_tasks,start_background_tasks,stop_background_tasks
 
 
 # 1. Initialize Python's built-in logging tool formatting style
@@ -25,6 +26,13 @@ logger = logging.getLogger("KamaraLogger")
 
 # check if the frontend can send raw audio and if it is also configured to receive audio
 app = FastAPI(title="AI Agentic Microservice")
+
+# add kamara url
+KEEP_ALIVE_URL = os.environ.get("KEEP_ALIVE_URL", "https://monicare.onrender.com/health")
+KEEP_ALIVE_INTERVAL_SECONDS = int(os.environ.get("KEEP_ALIVE_INTERVAL_SECONDS", 600))
+ENABLE_KEEP_ALIVE = os.environ.get("ENABLE_KEEP_ALIVE", "true").lower() in ("1", "true", "yes")
+
+app.state.keepalive_task = None
 
 # Cross-Origin resource allowances so React client can fetch records securely
 app.add_middleware(
@@ -42,6 +50,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    await start_background_tasks(app)
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    await stop_background_tasks(app)
+
 
 
 # 2. Add the Global Tracking Middleware Interceptor
