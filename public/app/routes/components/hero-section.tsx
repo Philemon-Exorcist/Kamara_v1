@@ -71,12 +71,13 @@ export function HeroSection() {
           <a className="hover " href="/advisor">Advisor</a>
           <a className="hover " href="/blog">Blog</a>
         </div>
-          {/* <div className="nav-actions ">
-            <a className="hover" href="/signup">Sign Up</a>
+          <div className="nav-actions ">
+            {/* <a className="hover" href="/signup">Sign Up</a>
             <a className="login-button cta" href="/login">
               Log In
-            </a>
-          </div> */}
+            </a> */}
+            <a className = "login-button cta" href="/#footer">Join-waitlist</a>
+          </div>
       </nav>
 
       <div className="hero-content">
