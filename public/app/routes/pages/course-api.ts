@@ -1,7 +1,8 @@
 import { getAuthHeaders, getSessionUserKey } from "../auth/session";
 
 const LOCAL_API_URL = "http://localhost:8001/api/v1";
-const PRODUCTION_API_URL = "https://kamsi-xza9.onrender.com/api/v1";
+// const PRODUCTION_API_URL = "https://kamsi-xza9.onrender.com/api/v1";
+const PRODUCTION_API_URL = "https://kamsi-t57w.onrender.com/api/v1";
 
 export const GENERATED_COURSE_STORAGE_KEY = "kamara-generated-course";
 
