@@ -15,7 +15,7 @@ async def draw_line(
     payload = {
         "action": "draw_line",
         "data": {
-            "type": line_type,
+            "line_type": line_type,
             "id": f"line:{line_id}",
             "x": x,
             "y": y,

@@ -1,42 +1,23 @@
 
-
-
-
+import os
 import json
 import logging
-import os
 import re
-from functools import lru_cache
+from dotenv import load_dotenv
 from pathlib import Path
 from typing import List
 from pydantic import BaseModel, Field
 
 # Core Google GenAI SDK Client & Model Elements
-from google import genai
-from google.genai import types
-from dotenv import load_dotenv
-
-
-
-# environment variables
-load_dotenv()
-
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    raise RuntimeError("Gemini Api Key Missing")
-
-
-#
+from google.genai import types,Client
 
 logger = logging.getLogger("KamaraLogger")
 # Lock to a supported model so older environment values cannot force 404s.
 WRITER_MODEL = "gemini-2.5-flash"
+load_dotenv()
 
-
-@lru_cache(maxsize=1)
-def get_writer_client() -> genai.Client:
-    return genai.Client(api_key=api_key)
-
+api_key = os.getenv("GEMINI_API_KEY")
+client = Client(api_key=api_key, http_options={"api_version": "v1alpha"})
 # =====================================================================
 # STRUCTURAL PYDANTIC DATA SCHEMAS FOR DATABASE INSERTION
 # =====================================================================
@@ -157,7 +138,7 @@ async def run_syllabus_designer(message: str, user_id: str = "course-generator")
             f"REQUEST:\n{message}\n\n"
             "Return a JSON object with exactly two keys: modules and textbook_handout_notes."
         )
-        response = await get_writer_client().aio.models.generate_content(
+        response = await client.aio.models.generate_content(
             model=WRITER_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(

@@ -1,31 +1,29 @@
 import asyncio
 import json
 import logging
-import os
 import re
 from typing import Optional
 import httpx
+from dotenv import load_dotenv
+import os
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from google import genai
-from google.genai import types
-from dotenv import load_dotenv
+from google.genai import types, Client
 from app.auth import verify_student_token
 from app.supabase_client import get_supabase_admin
 from kamara.writer.writer import _fallback_syllabus, run_syllabus_designer
-
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("missing gemini api key")
 
 logger = logging.getLogger("KamaraLogger")
 course_router = APIRouter(prefix="/api/v1", tags=["Course Pipeline"])
 
 # Lock to a supported model so older environment values cannot force 404s.
 VISION_MODEL = "gemini-2.5-flash"
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    raise RuntimeError("Missing API KEY")
+client = Client(api_key=api_key, http_options={"api_version": "v1alpha"})
 
 
 class CourseInitializationRequest(BaseModel):
@@ -95,9 +93,7 @@ async def generate_course_modules(
                             img_response = await client.get(payload.helper_material_url)
                             if img_response.status_code == 200:
                                 image_bytes = img_response.content
-                                ai_client = genai.Client(
-                                    api_key=GEMINI_API_KEY,
-                                )
+                                ai_client = client
                                 vision_pass = await ai_client.aio.models.generate_content(
                                     model=VISION_MODEL,
                                     contents=[

@@ -58,6 +58,12 @@ async def forward_frontend_mic_and_canvas_to_gemini(student_id: str, websocket, 
                     if not audio_data or len(audio_data) == 0:
                         continue
 
+                    logger.info(
+                        "Inbound mic frame received for %s | bytes=%s | forwarded_to_gemini=true",
+                        student_id,
+                        len(audio_data),
+                    )
+
                     # Forward microphone data IMMEDIATELY without delays [0xa9059cbb]
                     await session.send(
                         input=types.LiveClientContent(
@@ -81,6 +87,12 @@ async def forward_frontend_mic_and_canvas_to_gemini(student_id: str, websocket, 
                 elif "text" in frame and frame["text"]:
                     payload = json.loads(frame["text"])
                     event_type = payload.get("type")
+                    logger.info(
+                        "Inbound canvas/control frame received for %s | type=%s | bytes=%s",
+                        student_id,
+                        event_type,
+                        len(frame["text"]),
+                    )
 
                     # 🚀 TIME-GATE GUARD: Check if the frontend is flooding canvas requests
                     current_time = time.time()
@@ -89,7 +101,11 @@ async def forward_frontend_mic_and_canvas_to_gemini(student_id: str, websocket, 
                         # Only let canvas mutations hit Gemini if at least 2.5 seconds have passed
                         # This prevents interrupting Gemini before it can speak [0xa9059cbb]
                         if (current_time - last_canvas_update_time) < 2.5:
-                            logger.info("⏳ Dropped high-frequency canvas frame to let Gemini speak.")
+                            logger.info(
+                                "⏳ Dropped high-frequency canvas frame for %s | type=%s",
+                                student_id,
+                                event_type,
+                            )
                             continue
                         
                         # Update the timestamp marker if we pass the validation gate

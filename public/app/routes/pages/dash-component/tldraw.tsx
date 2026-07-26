@@ -13,7 +13,7 @@ import { getGeneratedCourseStorageKey } from '../course-api';
 const WS_BASE_URL =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'ws://localhost:8001/ws/api/v1'
-    : 'wss://kamsi-xza9.onrender.com/ws/api/v1';
+    : 'wss://kamsi-t57w.onrender.com/ws/api/v1';
 // will add cloud run url 
 type BoardCommand =
   | {
@@ -203,18 +203,26 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
     case 'draw_line': {
       const id = getShapeId(command.data.id);
+      const lineType = command.data.line_type ?? (command.data as { type?: string }).type;
+      const isCurve = lineType === 'curve';
 
-      editor.createShapes([
-        {
-          id,
-          type: 'line',
-          x: command.data.x,
-          y: command.data.y,
-          props: {
-            scale: 1,
+      editor.createShape({
+        id,
+        type: 'line',
+        x: command.data.x,
+        y: command.data.y,
+        props: {
+          color: 'blue',
+          dash: 'solid',
+          size: 'm',
+          spline: isCurve ? 'cubic' : 'line',
+          points: {
+            start: { id: 'start', index: 'a1', x: 0, y: 0 },
+            end: { id: 'end', index: 'a2', x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
           },
+          scale: 1,
         },
-      ]);
+      });
       break;
     }
   }
@@ -240,9 +248,19 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
     const editor = editorRef.current;
     const token = localStorage.getItem('access_token');
     const activeSessionId = getSessionId(sessionId);
+    const currentSocket = socketRef.current;
 
-    if (!editor || !token || !activeSessionId || socketRef.current) {
+    if (!editor || !token || !activeSessionId) {
       return;
+    }
+
+    if (currentSocket?.readyState === WebSocket.OPEN || currentSocket?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
+
+    if (currentSocket) {
+      currentSocket.close();
+      socketRef.current = null;
     }
 
     const socket = new WebSocket(
@@ -259,31 +277,52 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
       );
     });
 
+    socket.addEventListener('close', () => {
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    });
+
+    socket.addEventListener('error', () => {
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    });
+
     socket.addEventListener('message', (event) => {
       if (typeof event.data !== 'string') {
         return;
       }
 
       try {
-        const payload = JSON.parse(event.data) as Partial<BoardCommand> & { type?: string; action?: string };
+        const payload = JSON.parse(event.data) as Partial<BoardCommand> & {
+          type?: string;
+          action?: string;
+          payload?: Partial<BoardCommand>;
+        };
 
-        if (!payload || typeof payload !== 'object' || !('action' in payload)) {
+        const command =
+          payload && typeof payload === 'object' && typeof payload.action === 'string'
+            ? payload
+            : payload?.payload;
+
+        if (!command || typeof command.action !== 'string') {
           return;
         }
 
         if (
-          payload.action !== 'draw_shape' &&
-          payload.action !== 'write_text' &&
-          payload.action !== 'move_shape' &&
-          payload.action !== 'resize_item' &&
-          payload.action !== 'delete_shape' &&
-          payload.action !== 'clear_board' &&
-          payload.action !== 'draw_line'
+          command.action !== 'draw_shape' &&
+          command.action !== 'write_text' &&
+          command.action !== 'move_shape' &&
+          command.action !== 'resize_item' &&
+          command.action !== 'delete_shape' &&
+          command.action !== 'clear_board' &&
+          command.action !== 'draw_line'
         ) {
           return;
         }
 
-        applyBoardCommand(editor, payload as BoardCommand);
+        applyBoardCommand(editor, command as BoardCommand);
       } catch (error) {
         console.error('Could not apply tutor board command', error);
       }

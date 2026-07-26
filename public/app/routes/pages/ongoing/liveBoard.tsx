@@ -163,18 +163,26 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
     case "draw_line": {
       const id = getShapeId(command.data.id);
+      const lineType = command.data.line_type ?? (command.data as { type?: string }).type;
+      const isCurve = lineType === "curve";
 
-      editor.createShapes([
-        {
-          id,
-          type: "line",
-          x: command.data.x,
-          y: command.data.y,
-          props: {
-            scale: 1,
+      editor.createShape({
+        id,
+        type: "line",
+        x: command.data.x,
+        y: command.data.y,
+        props: {
+          color: "blue",
+          dash: "solid",
+          size: "m",
+          spline: isCurve ? "cubic" : "line",
+          points: {
+            start: { id: "start", index: "a1", x: 0, y: 0 },
+            end: { id: "end", index: "a2", x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
           },
+          scale: 1,
         },
-      ]);
+      });
       break;
     }
   }
