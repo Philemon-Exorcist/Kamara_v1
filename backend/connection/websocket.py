@@ -55,8 +55,10 @@ async def live_classroom_session_stream(websocket: WebSocket,
     
     WHITEBOARD INTERACTION RULES:
     - Use your whiteboard drawing tools (`async_draw`, `write_board`, `draw_line`) immediately to illustrate items found in these notes.
-    - Read coming `canvas_snapshot_vision` image frame updates as the absolute source of truth for what the student draws on their board.
-    start teaching immmediately
+    - Read coming `canvas_snapshot_vision` image frame updates as the absolute source of truth for what is on  the  board.
+    start teaching immmediately, immediately draw a line and write suitable topic on the whiteboard
+    teach and write what you want to write one at a time, step by step and continue teaching until
+    the students interrupts you, your class must last five minutes
     """
 
     # 4. Accept Connection and Register to Manager

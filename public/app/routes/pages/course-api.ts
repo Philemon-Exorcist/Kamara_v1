@@ -1,20 +1,10 @@
+import { getBaseUrl } from "../api-config";
 import { getAuthHeaders, getSessionUserKey } from "../auth/session";
-
-const LOCAL_API_URL = "http://localhost:8001/api/v1";
-const PRODUCTION_API_URL = "https://kamsi-xza9.onrender.com/api/v1";
 
 export const GENERATED_COURSE_STORAGE_KEY = "kamara-generated-course";
 
 export function getGeneratedCourseStorageKey() {
   return `${GENERATED_COURSE_STORAGE_KEY}:${getSessionUserKey()}`;
-}
-
-function getBaseUrl() {
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-    return LOCAL_API_URL;
-  }
-
-  return PRODUCTION_API_URL;
 }
 
 async function parseApiError(response: Response, fallback: string) {
@@ -27,7 +17,7 @@ async function parseApiError(response: Response, fallback: string) {
   if (Array.isArray(errorData.detail)) {
     return errorData.detail
       .map((error: any) => error.msg)
-      .filter(Boolean)
+      .filter(Boolean) // Filter out any empty messages
       .join(" ");
   }
 
@@ -79,16 +69,23 @@ async function readCourseGenerationStream(response: Response) {
   return latestPayload ?? { status: "complete" };
 }
 
+interface CoursePromptPayload {
+  courseTitle: string;
+  prompt: string;
+}
+
 export async function submitCoursePrompt({
   courseTitle,
   prompt,
-}: {
-  courseTitle: string;
-  courseDescription: string;
-  prompt: string;
-  photos: File[];
-}) {
+}: CoursePromptPayload) {
   let response: Response;
+
+  // The endpoint path seems to have two variants, let's try the primary one first.
+  const primaryPath = "/pages/course/generate";
+  const requestBody = {
+    course: courseTitle,
+    prompt,
+  };
 
   const requestInit: RequestInit = {
     method: "POST",
@@ -96,22 +93,24 @@ export async function submitCoursePrompt({
       ...getAuthHeaders(),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      course: courseTitle,
-      prompt,
-    }),
+    body: JSON.stringify(requestBody),
   };
 
   try {
-    response = await fetch(`${getBaseUrl()}/pages/course/generate`, requestInit);
+    response = await fetch(`${getBaseUrl()}${primaryPath}`, requestInit);
 
+    // If the primary endpoint is not found, try the fallback endpoint.
     if (response.status === 404) {
+      const fallbackPath = "/courses/generate";
+      console.warn(`Endpoint ${primaryPath} not found, trying fallback ${fallbackPath}`);
       response = await fetch(`${getBaseUrl()}/courses/generate`, requestInit);
     }
-  } catch {
+  } catch (error) {
+    console.error("Network error during course generation:", error);
     throw new Error("Could not reach the backend. Please check your connection and try again.");
   }
 
+  // After attempting fetches, check if the final response is OK.
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Could not generate this course request."));
   }
