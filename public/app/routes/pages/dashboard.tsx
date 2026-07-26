@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import {
   DashboardSidebar,
   DashboardTopbar,
-  EventsPanel,
-  HomeworkProgress,
   SchedulePanel,
   StatsCards,
   WelcomePanel,
@@ -66,15 +64,10 @@ export default function DashboardPage() {
           <div className="grid gap-6 xl:grid-cols-[1.6fr_0.9fr]">
             <div className="space-y-6">
               <WelcomePanel fullName={dashboard?.full_name} planTier={dashboard?.plan_tier} recommendations={dashboard?.recommended_topics} />
-              <StatsCards stats={dashboard?.stats} />
+             
 
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SchedulePanel />
-                <EventsPanel activities={dashboard?.recent_activity} />
-              </div>
             </div>
 
-            <HomeworkProgress />
           </div>
         </div>
       </section>
