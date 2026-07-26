@@ -895,7 +895,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={handleTutorToggle}
-                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm transition ${
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm transition-colors ${
                   isTutorConnected || isTutorConnecting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
                 }`}
                 aria-label={isTutorConnected || isTutorConnecting ? "Disconnect tutor call" : "Activate tutor call"}
@@ -906,7 +906,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={handleMicToggle}
-                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm transition ${
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg shadow-sm transition-colors ${
                   isRecording || isMicConnecting ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-200 text-slate-700 hover:bg-slate-300"
                 }`}
                 aria-label={isRecording || isMicConnecting ? "Turn microphone off" : "Turn microphone on"}
