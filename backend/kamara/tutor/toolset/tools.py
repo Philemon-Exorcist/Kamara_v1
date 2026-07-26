@@ -1,5 +1,8 @@
 import logging
 
+from fastapi import WebSocket
+from google.genai import types
+
 from connection.connect_manager import manager
 
 from .delete_and_clear import clear_board, delete_board_item
@@ -7,21 +10,8 @@ from .draw import draw_on_board
 from .draw_line_and_curve import draw_line
 from .move_and_adjust import adjust_item_size, move_item_on_screen
 from .write import write_on_board
-from fastapi import WebSocket
-from google.genai import types
 
-logger = logging.getLogger("Kamara Logger")
-
-
-WHITEBOARD_TOOL_MAP = {
-    "async_draw": draw_on_board,
-    "clear_whiteboard": clear_board,
-    "write_board": write_on_board,
-    "delete_item": delete_board_item,
-    "move_item": move_item_on_screen,
-    "adjust_item_size": adjust_item_size,
-    "draw_line": draw_line,
-}
+logger = logging.getLogger("KamaraLogger")
 
 
 tools = {
@@ -124,24 +114,21 @@ tools = {
 }
 
 
-
-
-async def tools_handler(student_id: str, session, tool_call, websocket):
+async def tools_handler(student_id: str, session, tool_call, websocket: WebSocket):
     """
-    Processes incoming function calls from Gemini, relays drawing payloads
-    directly over the active WebSocket, and returns receipts to the AI model stream.
+    Process tool calls from Gemini, broadcast board commands to every active
+    socket for the student, and return receipts to Gemini once per call.
     """
     if not tool_call or not tool_call.function_calls:
         return
 
-    function_responses = []
+    function_responses: list[types.Part] = []
 
     for fc in tool_call.function_calls:
         payload = None
-        result = None
+        gemini_receipt = {"success": "true"}
 
         try:
-            # 1. EXECUTE THE TOOL (Run with ONLY the arguments Gemini generated)
             if fc.name == "async_draw":
                 payload = await draw_on_board(**fc.args)
             elif fc.name == "write_board":
@@ -157,87 +144,52 @@ async def tools_handler(student_id: str, session, tool_call, websocket):
             elif fc.name == "draw_line":
                 payload = await draw_line(**fc.args)
             else:
-                result = {"status": "error", "message": f"Unknown tutor tool: {fc.name}"}
+                gemini_receipt = {
+                    "success": "false",
+                    "error_message": f"Unknown tutor tool: {fc.name}",
+                }
 
-            # 2. RELAY DYNAMIC LAYOUT ACTIONS DIRECTLY TO BROWSER CANVAS
             if payload:
-                # 🚀 DIRECT WIRE: Send tldraw commands directly over the explicit socket
-                await websocket.send_json({
+                browser_command = {
                     "type": "tool_call",
                     "name": fc.name,
-                    "payload": payload
-                })
-                logger.info(f"🎨 Whiteboard action '{fc.name}' sent directly to student {student_id}")
-                result = {"status": "success", "message": "Whiteboard canvas updated successfully."}
+                    "action": payload.get("action"),
+                    "data": payload.get("data", {}),
+                    "payload": payload,
+                }
+
+                await manager.send_json_message(browser_command, student_id)
+                logger.info("Broadcast tutor tool '%s' to student %s", fc.name, student_id)
 
                 gemini_receipt = {
                     "success": "true",
                     "action_executed": str(fc.name),
-                    "status_message": "Tool Call (Whiteboard updated successfully)"}
+                    "status_message": "Tool Call (Whiteboard updated successfully)",
+                }
 
-        except Exception as e:
-            logger.error(f"❌ Whiteboard execution failed for tool {fc.name}: {str(e)}", exc_info=True)
-            result = {"status": "error", "message": f"Execution error: {str(e)}"}
-        
+        except Exception as exc:
+            logger.error("Whiteboard execution failed for tool %s: %s", fc.name, str(exc), exc_info=True)
             gemini_receipt = {
-                    "success": "false",
-                    "error_message": str(e)[:120] }  # Flat text string
-        
-    
-        # Google's live server rejects nested keys. It wants a direct key-value map.
+                "success": "false",
+                "error_message": str(exc)[:120],
+            }
+
         function_responses.append(
             types.Part(
                 function_response=types.FunctionResponse(
                     name=fc.name,
                     id=fc.id,
-                    # Pass the direct execution statement dictionary smoothly
-                    #response=result if isinstance(result, dict) else {"status": "success"}
-                    response=gemini_receipt if gemini_receipt else {"success": "true"}
+                    response=gemini_receipt,
                 )
             )
         )
 
-
-        
-        # 4. Stream the compiled tool confirmations straight back to Gemini's loop
-        if function_responses:
-            try:
-                await session.send(
-                    input=types.LiveClientRealtimeInput(
-                    function_responses=function_responses
-                )
+    try:
+        await session.send(
+            input=types.LiveClientRealtimeInput(
+                function_responses=function_responses
             )
-                logger.info("✅ Successfully sent clean real-time tool response receipts back to Gemini stream.")
-
-                """
-                await session.send(
-                    input=types.LiveClientContent(
-                        turns=[
-                            types.Content(
-                                role="user",
-                                parts=function_responses
-                            )
-                        ]
-                    )
-                )
-                """
-        
-                logger.info("✅ Successfully sent tool execution receipts back to Gemini stream.")
-            except Exception as stream_err:
-                logger.error(f"❌ Failed to stream tool confirmation back to Gemini: {str(stream_err)}")
-
-    
-
-                logger.info("✅ Successfully sent tool execution receipts back to Gemini stream.")
-            except Exception as stream_err:
-                logger.error(f"❌ Failed to stream tool confirmation back to Gemini: {str(stream_err)}")
-        
-
-
-
-
-
-
-
-
-
+        )
+        logger.info("Sent %s tool response receipt(s) back to Gemini.", len(function_responses))
+    except Exception as stream_err:
+        logger.error("Failed to stream tool confirmation back to Gemini: %s", str(stream_err))

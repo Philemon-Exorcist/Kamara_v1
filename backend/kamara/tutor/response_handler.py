@@ -8,6 +8,7 @@ import base64
 import logging
 from google.genai import types
 from fastapi import WebSocket, WebSocketDisconnect
+from connection.connect_manager import manager
 from .toolset.tools import tools_handler
 
 logger = logging.getLogger("KamaraLogger")
@@ -61,7 +62,10 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                             # Handle streaming text text if sent by the engine
                             if part.text:
                                 logger.info("📝 Gemini Text Segment: %s", part.text)
-                                await websocket.send_json({"type": "assistant_text", "content": part.text})
+                                await manager.send_json_message(
+                                    {"type": "assistant_text", "content": part.text},
+                                    student_id,
+                                )
 
                             # Handle voice binary data packets
                             if part.inline_data and part.inline_data.data:
@@ -81,12 +85,15 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                                 )
 
                                 # Push raw sound down the websocket channel pipe
-                                await websocket.send_bytes(audio_bytes)
+                                await manager.send_binary_audio(audio_bytes, student_id)
 
                     # Capture conversational interruptions
                     if response.server_content.interrupted:
                         logger.info("🤫 Student %s interrupted the AI tutor.", student_id)
-                        await websocket.send_json({"type": "interrupted", "action": "stop_audio_playback"})
+                        await manager.send_json_message(
+                            {"type": "interrupted", "action": "stop_audio_playback"},
+                            student_id,
+                        )
 
                 # Handle tool operations
                 if response.tool_call:

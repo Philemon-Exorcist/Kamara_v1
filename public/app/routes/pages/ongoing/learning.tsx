@@ -55,8 +55,10 @@ const fallbackModules = placeholderModules;
 const WS_BASE_URL =
   typeof window !== "undefined" && window.location.hostname === "localhost"
     ? "ws://localhost:8001/ws/api/v1"
-    : "wss://kamara-v0-1.onrender.com/ws/api/v1";
+    : "wss://kamsi-t57w.onrender.com/ws/api/v1";
 const COURSE_MODULES_WS_ENDPOINT = `${WS_BASE_URL}/courses/hrm/modules`;
+const MIC_RMS_THRESHOLD = 0.012;
+const MIC_HANGOVER_MS = 250;
 
 function isAudioStreamingSupported() {
   return typeof window !== "undefined" && "MediaRecorder" in window && "WebSocket" in window;
@@ -221,11 +223,14 @@ export default function DashboardPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioGainRef = useRef<GainNode | null>(null);
   const assistantAudioContextRef = useRef<AudioContext | null>(null);
   const assistantAudioNextTimeRef = useRef<number>(0);
   const assistantAudioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const boardSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const micChunkCountRef = useRef(0);
+  const micLastVoiceAtRef = useRef(0);
+  const pendingBoardCommandsRef = useRef<unknown[]>([]);
 
   useEffect(() => {
     const storageKey = getGeneratedCourseStorageKey();
@@ -407,14 +412,60 @@ export default function DashboardPage() {
     setTutorEvents((current) => [event, ...current].slice(0, 8));
   };
 
+  const applyBoardPayload = (payload: unknown) => {
+    if (!boardEditor || !payload || typeof payload !== "object") {
+      if (payload && typeof payload === "object") {
+        pendingBoardCommandsRef.current.push(payload);
+      }
+      return;
+    }
+
+    const candidate = payload as Partial<BoardCommand> & {
+      action?: string;
+      data?: unknown;
+    };
+
+    if (!candidate.action) {
+      return;
+    }
+
+    if (
+      candidate.action === "draw_shape" ||
+      candidate.action === "write_text" ||
+      candidate.action === "move_shape" ||
+      candidate.action === "resize_item" ||
+      candidate.action === "delete_shape" ||
+      candidate.action === "clear_board" ||
+      candidate.action === "draw_line"
+    ) {
+      applyBoardCommand(boardEditor, candidate as BoardCommand);
+    }
+  };
+
+  useEffect(() => {
+    if (!boardEditor || pendingBoardCommandsRef.current.length === 0) {
+      return;
+    }
+
+    const queuedCommands = [...pendingBoardCommandsRef.current];
+    pendingBoardCommandsRef.current = [];
+
+    queuedCommands.forEach((command) => {
+      applyBoardPayload(command);
+    });
+  }, [boardEditor]);
+
   const stopMicStream = () => {
     audioProcessorRef.current?.disconnect();
     audioSourceRef.current?.disconnect();
+    audioGainRef.current?.disconnect();
     audioContextRef.current?.close().catch(() => undefined);
 
     audioProcessorRef.current = null;
     audioSourceRef.current = null;
+    audioGainRef.current = null;
     audioContextRef.current = null;
+    micLastVoiceAtRef.current = 0;
 
     audioStreamRef.current?.getTracks().forEach((track) => track.stop());
     audioStreamRef.current = null;
@@ -499,7 +550,7 @@ export default function DashboardPage() {
     clearBoardSnapshotTimer();
     boardSnapshotTimerRef.current = setTimeout(() => {
       void sendCanvasSnapshots();
-    }, 1500);
+    }, 2600);
   };
 
   const connectTutorSession = async () => {
@@ -631,25 +682,24 @@ export default function DashboardPage() {
             return;
           }
 
-          if (
-            payload &&
-            typeof payload === "object" &&
-            "action" in payload &&
-            typeof payload.action === "string" &&
-            ["draw_shape", "write_text", "move_shape", "resize_item", "delete_shape", "clear_board", "draw_line"].includes(payload.action)
-          ) {
-            if (boardEditor) {
-              applyBoardCommand(boardEditor, payload as BoardCommand);
-            }
-            return;
-          }
-
           if (payload.type === "tool_call") {
             pushTutorEvent({
               type: payload.type,
               title: `Tool call: ${payload.name}`,
-              detail: JSON.stringify(payload.args ?? {}),
+              detail: JSON.stringify(payload.payload ?? payload.data ?? payload.args ?? {}),
             });
+
+            applyBoardPayload(payload.payload ?? payload.data);
+            return;
+          }
+
+          if (
+            payload &&
+            typeof payload === "object" &&
+            "action" in payload &&
+            typeof payload.action === "string"
+          ) {
+            applyBoardPayload(payload);
             return;
           }
 
@@ -754,7 +804,13 @@ export default function DashboardPage() {
     setIsMicConnecting(true);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       audioStreamRef.current = stream;
 
       const socket = tutorSocketRef.current;
@@ -766,7 +822,9 @@ export default function DashboardPage() {
 
       const audioContext = new AudioContext({ sampleRate: 16000 });
       const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const processor = audioContext.createScriptProcessor(512, 1, 1);
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
 
       processor.onaudioprocess = (event) => {
         if (socket.readyState !== WebSocket.OPEN) {
@@ -774,6 +832,24 @@ export default function DashboardPage() {
         }
 
         const input = event.inputBuffer.getChannelData(0);
+        let sumSquares = 0;
+        for (let index = 0; index < input.length; index += 1) {
+          const sample = input[index] ?? 0;
+          sumSquares += sample * sample;
+        }
+        const rms = Math.sqrt(sumSquares / Math.max(1, input.length));
+        const now = performance.now();
+        const isVoiceActive =
+          rms >= MIC_RMS_THRESHOLD || now - micLastVoiceAtRef.current < MIC_HANGOVER_MS;
+
+        if (rms >= MIC_RMS_THRESHOLD) {
+          micLastVoiceAtRef.current = now;
+        }
+
+        if (!isVoiceActive) {
+          return;
+        }
+
         const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
         socket.send(float32To16BitPCM(downsampled));
 
@@ -788,11 +864,13 @@ export default function DashboardPage() {
       };
 
       source.connect(processor);
-      processor.connect(audioContext.destination);
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
       audioContextRef.current = audioContext;
       audioSourceRef.current = source;
       audioProcessorRef.current = processor;
+      audioGainRef.current = silentGain;
 
       setIsRecording(true);
       setIsMicConnecting(false);

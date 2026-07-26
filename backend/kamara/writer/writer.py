@@ -1,85 +1,23 @@
-
-
-
-
-import json
 import logging
 import os
-import re
-from functools import lru_cache
-from pathlib import Path
-from typing import List
-from pydantic import BaseModel, Field
-
-# Core Google GenAI SDK Client & Model Elements
-from google import genai
-from google.genai import types
+from google.genai import types,Client
 from dotenv import load_dotenv
 
 
-
-# environment variables
-load_dotenv()
-
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    raise RuntimeError("Gemini Api Key Missing")
-
-
-#
+from .prompts import build_writer_system_prompt, build_writer_user_prompt
+from .schemas import WriterContentBundle, WriterModuleSchema, WriterRequestSchema, WriterResponseSchema
+from .source_loader import build_writer_content_bundle
 
 logger = logging.getLogger("KamaraLogger")
-# Lock to a supported model so older environment values cannot force 404s.
-WRITER_MODEL = "gemini-2.5-flash"
+WRITER_MODEL = "gemini-3.5-flash"
 
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+client = Client(api_key=api_key,http_options={"api_version": "v1alpha"})
 
-@lru_cache(maxsize=1)
-def get_writer_client() -> genai.Client:
-    return genai.Client(api_key=api_key)
-
-# =====================================================================
-# STRUCTURAL PYDANTIC DATA SCHEMAS FOR DATABASE INSERTION
-# =====================================================================
-class ModuleStepSchema(BaseModel):
-    sub_topic: str = Field(description="The crisp name of the subtopic section, e.g., 'Matrix Inverses'")
-    teaching_guidelines: str = Field(description="Visual whiteboard goals, matrix structures, and content layouts to guide the session.")
-
-
-class SyllabusResponseSchema(BaseModel):
-    modules: List[ModuleStepSchema] = Field(description="An ordered sequential list of exactly 3 to 5 learning subtopics.")
-    textbook_handout_notes: str = Field(description="The entire compiled, long-form textbook study guide formatted in rich Markdown.")
-
-
-# =====================================================================
-# DYNAMIC SKILLSET LOADER ROUTINE
-# =====================================================================
-CURRENT_DIR = Path(__file__).parent
-SKILLS_FILE_PATH = CURRENT_DIR / "writer_skills" / "research_skill.md"
-
-try:
-    with open(SKILLS_FILE_PATH, "r", encoding="utf-8") as file:
-        skills_instruction_block = file.read()
-except Exception as e:
-    skills_instruction_block = "Apply advanced curriculum writing and markdown skills."
-
-
-
-MASTER_WRITER_INSTRUCTION = (
-    "You are Kamara AI's primary Curriculum Designer and Textbook Writer. Your job is to take a topic "
-    "and subject, execute deep academic research using your tools, and compile a structured module roadmap "
-    "alongside an extensive textbook handout guide. You never speak to the student live.\n\n"
-    "=========================================\n"
-    f"{skills_instruction_block}\n"
-    "=========================================\n\n"
-    "OUTPUT REQUIREMENT:\n"
-    "Synthesize all facts and compile your final output to match the requested SyllabusResponseSchema structure perfectly."
-)
-
-
-# =====================================================================
-# CONTEXT PARSING & STATIC FALLBACK RULES
-# =====================================================================
 def _extract_course_context(message: str) -> tuple[str, str]:
+    import re
+
     subject_match = re.search(r"Course Subject Classification:\s*(.+)", message)
     goal_match = re.search(r"Student Main Learning Goal:\s*(.+)", message)
 
@@ -88,12 +26,12 @@ def _extract_course_context(message: str) -> tuple[str, str]:
     return subject or "General Studies", goal or "the requested topic"
 
 
-def _fallback_syllabus(message: str) -> SyllabusResponseSchema:
+def _fallback_syllabus(message: str) -> WriterResponseSchema:
     subject, goal = _extract_course_context(message)
     topic = goal[:90].strip(". ") or subject
 
     modules = [
-        ModuleStepSchema(
+        WriterModuleSchema(
             sub_topic=f"{subject.title()} foundations",
             teaching_guidelines=(
                 f"Introduce the key vocabulary behind {topic}. On the board, place the main idea in the center, "
@@ -101,15 +39,14 @@ def _fallback_syllabus(message: str) -> SyllabusResponseSchema:
                 "short worked example beside each branch."
             ),
         ),
-        ModuleStepSchema(
+        WriterModuleSchema(
             sub_topic="Core methods and worked examples",
             teaching_guidelines=(
                 "Build two side-by-side examples: one basic case and one exam-style case. Number every step, "
                 "circle each formula or rule when it first appears, and end with a short checkpoint question."
             ),
         ),
-
-        ModuleStepSchema(
+        WriterModuleSchema(
             sub_topic="Practice pathway and mastery checks",
             teaching_guidelines=(
                 "Create a three-level practice ladder labeled warm-up, standard, and challenge. For each level, "
@@ -138,42 +75,73 @@ def _fallback_syllabus(message: str) -> SyllabusResponseSchema:
         "- Write one summary paragraph explaining the method.\n"
     )
 
-    return SyllabusResponseSchema(modules=modules, textbook_handout_notes=notes)
+    return WriterResponseSchema(
+        title=f"{subject.title()} Study Guide",
+        source_type="prompt",
+        source_summary="Fallback prompt-only note package.",
+        modules=modules,
+        textbook_handout_notes=notes,
+    )
 
 
-# =====================================================================
-# CORE SDK HIGH-PERFORMANCE ROUTINE RUNNER
-# =====================================================================
-async def run_syllabus_designer(message: str, user_id: str = "course-generator") -> SyllabusResponseSchema:
+async def run_writer_agent(request: WriterRequestSchema, user_id: str = "course-generator") -> WriterResponseSchema:
     """
-    Agent 2 (The Writer Agent): Compiles structured syllabus plans and markdown textbook 
-    handout 
-
-        # 4. Safely parse verified raw JSON structures directly back into your destination target schema
+    Build a structured study note package from a prompt, PDF, image, or text attachment.
     """
     try:
-        prompt = (
-            f"{MASTER_WRITER_INSTRUCTION}\n\n"
-            f"REQUEST:\n{message}\n\n"
-            "Return a JSON object with exactly two keys: modules and textbook_handout_notes."
+        bundle: WriterContentBundle = await build_writer_content_bundle(
+            prompt=request.prompt,
+            helper_material_url=request.helper_material_url,
         )
-        response = await get_writer_client().aio.models.generate_content(
+        user_prompt = build_writer_user_prompt(
+            course=request.course,
+            prompt=request.prompt,
+            source_type=bundle.source_type.value,
+            source_summary=bundle.source_summary,
+        )
+
+        contents: list[object] = [user_prompt, *bundle.contents]
+
+        response = await client.aio.models.generate_content(
             model=WRITER_MODEL,
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=SyllabusResponseSchema,
+                systemInstruction=build_writer_system_prompt(),
+                responseMimeType="application/json",
+                responseSchema=WriterResponseSchema,
             ),
         )
 
-        if response.text:
-            return SyllabusResponseSchema.model_validate_json(response.text)
-
         if getattr(response, "parsed", None) is not None:
-            return response.parsed
+            parsed = response.parsed
+            return WriterResponseSchema.model_validate(parsed)
 
-    except Exception as e:
-        logger.error("Core Google GenAI SDK Writer failed; rolling over to local static fallback definitions: %s", str(e), exc_info=True)
-        return _fallback_syllabus(message)
+        if response.text:
+            return WriterResponseSchema.model_validate_json(response.text)
+
+        raise RuntimeError("Writer agent returned an empty response.")
+
+    except Exception as exc:
+        logger.error(
+            "Core Google GenAI SDK Writer failed; rolling over to local static fallback definitions: %s",
+            str(exc),
+            exc_info=True,
+        )
+        fallback = _fallback_syllabus(request.prompt)
+        return WriterResponseSchema(
+            title=fallback.title,
+            source_type=fallback.source_type,
+            source_summary=fallback.source_summary,
+            modules=[WriterModuleSchema.model_validate(module.model_dump()) for module in fallback.modules],
+            textbook_handout_notes=fallback.textbook_handout_notes,
+        )
     finally:
         logger.info("Writer engine finished for designer instance: %s", user_id)
+
+
+async def run_syllabus_designer(message: str, user_id: str = "course-generator") -> WriterResponseSchema:
+    """
+    Backward-compatible wrapper for older call sites that still pass a combined prompt string.
+    """
+    request = WriterRequestSchema(course="General Studies", prompt=message, helper_material_url=None)
+    return await run_writer_agent(request=request, user_id=user_id)
