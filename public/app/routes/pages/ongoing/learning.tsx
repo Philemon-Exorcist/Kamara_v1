@@ -26,7 +26,7 @@ import { type Editor, serializeTldrawJson } from "tldraw";
 
 import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
-import { getGeneratedCourseStorageKey } from "../course-api";
+import { getGeneratedCourseStorageKey } from "../genie-api";
 
 type GeneratedCourseSession = {
   session_id?: string;
