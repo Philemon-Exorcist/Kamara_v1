@@ -14,7 +14,8 @@ from .toolset.tools import tools
 load_dotenv()
 logger = logging.getLogger("KamaraLogger")
 
-api_key = os.getenv("GEMINI_API_KEY")
+#api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.environ.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise RuntimeError("Missing API KEY")
 
