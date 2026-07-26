@@ -36,6 +36,18 @@ class SignupCredentials(UserAuthCredentials):
         return value.strip()
 
 
+class SignupSplitCredentials(UserAuthCredentials):
+    first_name: str
+    last_name: str
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_name_part(cls, value):
+        if len(value.strip()) < 2:
+            raise ValueError("Please enter a valid name.")
+        return value.strip()
+
+
 class ForgotPassword(BaseModel):
     email : EmailStr
 
@@ -51,10 +63,11 @@ class EmailVerification(BaseModel):
 
 
 @router.post("/auth/signup")
-async def process_signup(payload: SignupCredentials):
+async def process_signup(payload: SignupSplitCredentials):
     logger.info("Attempting to register new student: %s", payload.email)
     
     supabase_admin = get_supabase_admin()
+    full_name = f"{payload.first_name} {payload.last_name}".strip()
 
     try:
         auth_user = supabase_admin.auth.admin.create_user(
@@ -63,7 +76,7 @@ async def process_signup(payload: SignupCredentials):
                 "password": payload.password,
                 "email_confirm": True, #False,
                 "user_metadata": {
-                    "full_name": payload.full_name,
+                    "full_name": full_name,
                 },
             }
         )
@@ -82,7 +95,7 @@ async def process_signup(payload: SignupCredentials):
             {
                 "id": student_id,
                 "email": auth_user.user.email,
-                "full_name": payload.full_name,
+                "full_name": full_name,
             }
         ).execute()
     except Exception as e:
@@ -239,7 +252,6 @@ async def process_password_update(payload: UpdatePasswordRequest):
             status_code=400,
             detail="Failed to update password. The link may have expired or is invalid."
         )
-
 
 
 
