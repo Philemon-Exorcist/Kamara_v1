@@ -1,20 +1,10 @@
+import { getBaseUrl } from "../api-config";
 import { getAuthHeaders, getSessionUserKey } from "../auth/session";
-
-const LOCAL_API_URL = "http://localhost:8001/api/v1";
-const PRODUCTION_API_URL = "https://kamsi-t57w.onrender.com/api/v1"; // This could be an environment variable
 
 export const GENERATED_COURSE_STORAGE_KEY = "kamara-generated-course";
 
 export function getGeneratedCourseStorageKey() {
   return `${GENERATED_COURSE_STORAGE_KEY}:${getSessionUserKey()}`;
-}
-
-function getBaseUrl() {
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-    return LOCAL_API_URL;
-  }
-
-  return PRODUCTION_API_URL;
 }
 
 async function parseApiError(response: Response, fallback: string) {
