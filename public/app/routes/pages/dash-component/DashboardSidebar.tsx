@@ -1,11 +1,13 @@
-import { Calculator, ArrowLeft, Plus, Settings, CircleHelp, GraduationCap, LogOut, X, History } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
+import { Calculator, ArrowLeft, Plus, Settings, CircleHelp, GraduationCap, LogOut, X, History, Sparkles } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { clearSession, getSessionUserName } from "../../auth/session";
 
-const navItems = ["Dashboard", "Courses", "Recent Courses"];
+const navItems = ["Dashboard", "Genie", "Recent Sessions"];
 
 const iconMap: Record<string, React.ReactNode> = {
   Dashboard: <GraduationCap size={18} />,
+  Genie: <Sparkles size={18} />,
+  "Recent Sessions": <History size={18} />,
   "Courses": <Calculator size={18} />,
   "Recent Courses": <History size={18} />,
 };
@@ -72,17 +74,24 @@ export function DashboardSidebar({ isOpen, onClose, userName: remoteUserName }: 
           <div className="flex-1 min-h-0 overflow-y-auto">
             <nav className="space-y-1">
               {navItems.map((item) => {
-                const href = item === "Dashboard" ? "/dashboard" : `/${item.toLowerCase().replaceAll(" ", "-")}`;
+                let href = `/${item.toLowerCase().replaceAll(" ", "-")}`;
+                if (item === "Dashboard") {
+                  href = "/dashboard";
+                } else if (item === "Genie") {
+                  href = "/courses";
+                } else if (item === "Recent Sessions") {
+                  href = "/recent-sessions";
+                }
                 const isActive = location.pathname === href;
                 return (
-                  <a
+                  <Link
                     className={`flex items-center gap-3 rounded-3xl px-4 py-3 text-sm ${isActive ? "bg-blue-50 text-blue-700 font-semibold" : "text-slate-700 hover:bg-slate-100"}`}
-                    href={href}
                     key={item}
+                    to={href}
                   >
                     <span className="text-slate-500">{iconMap[item]}</span>
                     {item}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>

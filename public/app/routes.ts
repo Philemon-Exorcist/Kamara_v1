@@ -6,6 +6,6 @@ export default [
   route("signup", "routes/auth/signup.tsx"),
   route("dashboard", "routes/pages/dashboard.tsx"),
   route("ongoing/learning", "routes/pages/ongoing/learning.tsx"),
-  route("courses", "routes/pages/courses.tsx"),
-  route("recent-courses", "routes/pages/dash-component/recent-courses.tsx"),
+  route("courses", "routes/pages/genie.tsx"),
+  route("recent-sessions", "routes/pages/dash-component/recent-sessions.tsx"),
 ] satisfies RouteConfig;
