@@ -5,15 +5,15 @@ import { dashboardApi, type DashboardSession } from "../dashboard-api";
 
 export function meta() {
   return [
-    { title: "Recent Courses | Kamara AI" },
+    { title: "Recent Sessions | Kamara AI" },
     {
       name: "description",
-      content: "Access your recently viewed courses.",
+      content: "Access your recently viewed sessions.",
     },
   ];
 }
 
-export default function RecentCoursesPage() {
+export default function RecentSessionsPage() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sessions, setSessions] = useState<DashboardSession[]>([]);
@@ -32,7 +32,7 @@ export default function RecentCoursesPage() {
       })
       .catch((loadError) => {
         if (!ignore) {
-          setError(loadError instanceof Error ? loadError.message : "Could not load your recent courses.");
+          setError(loadError instanceof Error ? loadError.message : "Could not load your recent sessions.");
         }
       });
 
@@ -55,10 +55,10 @@ export default function RecentCoursesPage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <section className="md:ml-[300px] min-h-screen" aria-label="Recent Courses">
+      <section className="md:ml-[300px] min-h-screen" aria-label="Recent Sessions">
         <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} />
         <div className="p-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-6">Recent Courses</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-6">Recent Sessions</h1>
           {error ? (
             <div className="mb-6 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
               {error}
@@ -82,7 +82,7 @@ export default function RecentCoursesPage() {
             ))}
             {filteredCourses.length === 0 && (
               <div className="col-span-full text-center py-12 text-slate-500">
-                <p className="text-lg font-semibold">No courses found</p>
+                <p className="text-lg font-semibold">No sessions found</p>
                 <p>Try adjusting your search query.</p>
               </div>
             )}

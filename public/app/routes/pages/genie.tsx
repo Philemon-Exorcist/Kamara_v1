@@ -2,7 +2,7 @@ import { DashboardSidebar, DashboardTopbar } from "./dash-component";
 import { BookOpen, BrainCircuit, FlaskConical, Atom, Grid3X3, Calculator } from "lucide-react";
 import { useState, useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./course-api";
+import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./genie-api";
 import CourseModal from "./ongoing/courseModal";
 
 type Course = {

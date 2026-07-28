@@ -8,7 +8,7 @@ import {
   toRichText,
 } from 'tldraw';
 import 'tldraw/tldraw.css';
-import { getGeneratedCourseStorageKey } from '../course-api';
+import { getGeneratedCourseStorageKey } from '../genie-api';
 
 const WS_BASE_URL =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'

@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { ArrowLeft, GraduationCap, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, GraduationCap, CheckCircle2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
 
 export default function SignupPage() {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; general?: string }>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; email?: string; password?: string; general?: string }>({});
   const [agreed, setAgreed] = useState(false);
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,12 +22,18 @@ export default function SignupPage() {
     setErrors({});
     
     // Client-side validation
-    const nameErr = validate.name(name);
+    const firstNameErr = validate.name(firstName);
+    const lastNameErr = validate.name(lastName);
     const emailErr = validate.email(email);
     const passErr = validate.password(password, true);
 
-    if (nameErr || emailErr || passErr) {
-      setErrors({ name: nameErr || "", email: emailErr || "", password: passErr || "" });
+    if (firstNameErr || lastNameErr || emailErr || passErr) {
+      setErrors({
+        firstName: firstNameErr || "",
+        lastName: lastNameErr || "",
+        email: emailErr || "",
+        password: passErr || "",
+      });
       return;
     }
 
@@ -36,7 +44,7 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      await authApi.signup({ name, email, password });
+      await authApi.signup({ firstName, lastName, email, password });
       setSuccess("Registration successful! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err: any) {
@@ -91,19 +99,35 @@ export default function SignupPage() {
                 </div>
               )}
 
-              <label htmlFor="signup-name">
-                Name
-                <input
-                  id="signup-name"
-                  name="name"
-                  type="text"
-                  placeholder="Enter your name"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                {errors.name && <span className="auth-field-error">{errors.name}</span>}
-              </label>
+              <div className="auth-form-row auth-name-row">
+                <label htmlFor="signup-first-name">
+                  First name
+                  <input
+                    id="signup-first-name"
+                    name="firstName"
+                    type="text"
+                    placeholder="First name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                  {errors.firstName && <span className="auth-field-error">{errors.firstName}</span>}
+                </label>
+
+                <label htmlFor="signup-last-name">
+                  Last name
+                  <input
+                    id="signup-last-name"
+                    name="lastName"
+                    type="text"
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                  {errors.lastName && <span className="auth-field-error">{errors.lastName}</span>}
+                </label>
+              </div>
 
               <label htmlFor="signup-email">
                 Email
@@ -121,15 +145,26 @@ export default function SignupPage() {
 
               <label htmlFor="signup-password">
                 Password
-                <input
-                  id="signup-password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="auth-password-wrap">
+                  <input
+                    id="signup-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    className="auth-password-toggle"
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </div>
                 {errors.password && <span className="auth-field-error">{errors.password}</span>}
               </label>
 

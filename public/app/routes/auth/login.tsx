@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, GraduationCap, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, GraduationCap, CheckCircle2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
@@ -9,6 +9,7 @@ import { getAccessToken, loadCurrentUser, saveLoginSession } from "./session";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -101,15 +102,26 @@ export default function LoginPage() {
 
               <label htmlFor="login-password">
                 Password
-                <input
-                  id="login-password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="auth-password-wrap">
+                  <input
+                    id="login-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    className="auth-password-toggle"
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </div>
                 {errors.password && <span className="auth-field-error">{errors.password}</span>}
               </label>
 
