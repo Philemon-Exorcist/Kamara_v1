@@ -99,8 +99,6 @@ export function HeroSection() {
         </div>
 
         <div className="hero-visual reveal delay-1" aria-label="Student learning online">
-          
-
           <div className="student-frame">
             <img
               className="student-photo"
@@ -109,14 +107,19 @@ export function HeroSection() {
             />
           </div>
 
-          
+          <div className="powered-badge" aria-label="Powered by AI">
+            <span className="powered-badge-icon" aria-hidden="true">
+              AI
+            </span>
+            <span>AI Powered</span>
+          </div>
 
           <div className="course-card">
             <div className="play-icon-wrap" aria-hidden="true">
               <Play size={16} fill="currentColor" />
             </div>
-            <strong>20K+</strong>
-            <small>Online Course</small>
+            <strong>AI Tutor</strong>
+            <small>Learn with guidance</small>
           </div>
         </div>
       </div>
