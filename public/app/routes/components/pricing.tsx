@@ -3,8 +3,8 @@ import { ArrowRight, BadgeCheck, BrainCircuit, ShieldCheck, Sparkles } from "luc
 const pricingPlans = [
   {
     name: "Starter",
-    priceUsd: "$3.63",
-    priceNgn: "₦5,000",
+    priceUsd: "$4",
+    priceNgn: "₦6,600",
     period: "/month",
     description: "A simple way to test AI-guided learning and get started quickly.",
     accent: "starter",
@@ -19,9 +19,9 @@ const pricingPlans = [
   },
   {
     name: "Pro",
-    priceUsd: "$7.27",
+    priceUsd: "$8",
     period: "/month",
-    priceNgn: "₦10,000",
+    priceNgn: "₦13,200",
     description: "For learners who want deeper feedback, live whiteboard coaching, and a stronger study routine.",
     accent: "featured",
     badge: "Most popular",
@@ -36,9 +36,9 @@ const pricingPlans = [
   },
   {
     name: "Group",
-    priceUsd: "$14.53",
+    priceUsd: "$15",
     period: "/month",
-    priceNgn: "₦20,000",
+    priceNgn: "₦24,750",
     description: "For ambitious learners and families who want full guidance, personalization, and coaching support.",
     accent: "premium",
     features: [
