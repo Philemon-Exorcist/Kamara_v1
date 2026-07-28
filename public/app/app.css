@@ -1651,82 +1651,79 @@ body {
 .why-best-section {
   background: #ffffff;
   color: #050505;
-  padding: 74px 0 88px;
+  padding: 84px 0 96px;
 }
 
 .why-best-shell {
   width: min(100% - 48px, 1100px);
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(330px, 0.95fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 78px;
-}
-
-.why-best-media {
-  position: relative;
-  min-height: 520px;
-}
-
-.why-best-media img {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: min(100%, 520px);
-  height: 480px;
   display: block;
-  object-fit: cover;
-  object-position: center;
-  border-radius: 0 14px 0 0;
 }
 
-.why-best-cloud {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  width: 190px;
-  height: 164px;
-  background:
-    radial-gradient(circle at 16px 18px, #ffffff 0 48px, transparent 49px),
-    radial-gradient(circle at 80px 0, #ffffff 0 70px, transparent 71px),
-    radial-gradient(circle at 142px 44px, #ffffff 0 58px, transparent 59px),
-    radial-gradient(circle at 56px 84px, #ffffff 0 52px, transparent 53px);
-  filter: drop-shadow(1px 1px 0 #050505);
+.why-best-copy {
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .why-best-copy h2 {
-  max-width: 560px;
+  max-width: 620px;
   margin: 0;
   color: #050505;
-  font-size: clamp(38px, 5vw, 60px);
-  line-height: 1.03;
-  letter-spacing: 0;
+  font-size: clamp(32px, 4.4vw, 54px);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
   font-weight: 850;
 }
 
 .why-best-copy > p {
-  max-width: 600px;
-  margin: 18px 0 24px;
-  color: #252525;
-  font-size: 13px;
-  line-height: 1.55;
+  max-width: 640px;
+  margin: 18px 0 34px;
+  color: #4b5563;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.why-best-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.86fr);
+  align-items: start;
+  gap: 28px;
+}
+
+.why-best-media {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 22% 24%, rgba(37, 99, 235, 0.09), transparent 0 150px),
+    linear-gradient(180deg, #f7f8fb 0%, #eef3ff 100%);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.09);
+}
+
+.why-best-media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
 }
 
 .why-best-list {
   display: grid;
-  gap: 16px;
+  gap: 14px;
+  background: #ffffff;
 }
 
 .why-best-item {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-  min-height: 78px;
+  min-height: 88px;
   padding: 16px 18px;
-  border: 1.5px solid #050505;
-  border-radius: 8px;
+  border: 1.5px solid #111111;
+  border-radius: 10px;
   background: #ffffff;
   color: #050505;
   transition:
@@ -1744,36 +1741,41 @@ body {
   box-shadow: 0 16px 34px rgba(37, 99, 235, 0.22);
 }
 
-.why-best-item span {
+.why-best-item-number {
   width: 34px;
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 5px;
+  border-radius: 6px;
   background: #2563eb;
   color: #ffffff;
   font-size: 16px;
   font-weight: 850;
+  line-height: 1;
 }
 
-.why-best-item:hover span,
-.why-best-item.is-active span {
+.why-best-item.is-active .why-best-item-number {
   background: #ffffff;
   color: #2563eb;
 }
 
-.why-best-item h3 {
-  margin: 0 0 7px;
-  font-size: 17px;
+.why-best-item:hover .why-best-item-number {
+  background: #ffffff;
+  color: #2563eb;
+}
+
+.why-best-item-content h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
   line-height: 1.25;
   font-weight: 800;
 }
 
-.why-best-item p {
+.why-best-item-content p {
   margin: 0;
   color: inherit;
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .reviews-section {
@@ -2381,29 +2383,41 @@ body {
     width: min(100% - 32px, 1100px);
   }
 
+  .why-best-copy h2 {
+    font-size: clamp(30px, 7vw, 44px);
+  }
+
+  .why-best-copy > p {
+    margin-bottom: 26px;
+  }
+
+  .why-best-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
   .why-best-media {
     min-height: 360px;
   }
 
   .why-best-media img {
-    height: 340px;
-  }
-
-  .why-best-cloud {
-    width: 140px;
-    height: 118px;
-    transform: scale(0.82);
-    transform-origin: top left;
+    min-height: 320px;
   }
 
   .why-best-item {
-    grid-template-columns: 38px 1fr;
+    grid-template-columns: 38px minmax(0, 1fr);
     gap: 12px;
     padding: 14px;
   }
 
-  .why-best-item h3 {
-    font-size: 15px;
+  .why-best-item-content h3 {
+    font-size: 17px;
+  }
+
+  .why-best-item-number {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
   }
 
   .reviews-section {
