@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import WebSocket
 from google import genai
-from google.genai import types
+from google.genai import types, Client
 
 from .response_handler import receive_response_from_ai
 from .task_handler import forward_frontend_mic_and_canvas_to_gemini
@@ -14,12 +14,15 @@ from .toolset.tools import tools
 load_dotenv()
 logger = logging.getLogger("KamaraLogger")
 
-#api_key = os.getenv("GEMINI_API_KEY")
-api_key = os.environ.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
+#api_key = os.environ.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise RuntimeError("Missing API KEY")
 
-client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
+client = Client(api_key=api_key)
+        #         http_options=types.HttpOptions(api_version="v1alpha"))
+
+# do same for writer agent
 
 
 async def agent(student_id: str, websocket: WebSocket, system_prompt: str):
