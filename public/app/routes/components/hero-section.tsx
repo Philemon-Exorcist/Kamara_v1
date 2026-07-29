@@ -97,7 +97,7 @@ export function HeroSection() {
           <a className="hover " href="#about">About</a>
           <a className="hover " href="#why-best">Services</a>
           <a className="hover " href="#pricing">Pricing</a>
-          <a className="hover " href="#reviews">FAQs</a>
+          <a className="hover " href="#faq">FAQs</a>
         </div>
           <div className="nav-actions ">
             {/* <a className="hover" href="/signup">Sign Up</a>
