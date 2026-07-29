@@ -66,10 +66,10 @@ export function HeroSection() {
         </a>
         <div className="nav-links ">
           <a className="hover " href="/">Home</a>
-          <a className="hover " href="/about">About</a>
-          <a  className="hover " href="/services">Services</a>
-          <a className="hover " href="/advisor">Advisor</a>
-          <a className="hover " href="/blog">Blog</a>
+          <a className="hover " href="#about">About</a>
+          <a className="hover " href="#why-best">Services</a>
+          <a className="hover " href="#pricing">Pricing</a>
+          <a className="hover " href="#reviews">FAQs</a>
         </div>
           <div className="nav-actions ">
             {/* <a className="hover" href="/signup">Sign Up</a>
@@ -88,7 +88,7 @@ export function HeroSection() {
             your growth with every step forward confidence starts with knowledge
           </p>
           <div className="hero-actions">
-            <a className="primary-button cta" href="/#footer">
+          <a className="primary-button cta" href="/#footer">
               Join-waitlist <ArrowRight size={18} aria-hidden="true" style={{ marginLeft: '8px' }} />
             </a>
             <a className="secondary-button hover" href="#about">

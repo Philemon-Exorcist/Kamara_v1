@@ -230,6 +230,10 @@ body {
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 .dashboard-page {
   min-height: 100vh;
   padding: 20px;
