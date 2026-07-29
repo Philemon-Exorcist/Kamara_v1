@@ -21,7 +21,7 @@ const reasons = [
 
 export function WhyBestSection() {
   return (
-    <section className="why-best-section" aria-labelledby="why-best-heading">
+    <section id="why-best" className="why-best-section" aria-labelledby="why-best-heading">
       <div className="why-best-shell">
         <div className="why-best-copy reveal">
           <h2 id="why-best-heading" className="reveal delay-1">
