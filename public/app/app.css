@@ -991,15 +991,45 @@ html {
   pointer-events: none;
 }
 
-.hero-nav {
+.hero-nav-spacer {
   width: min(100% - 48px, 1100px);
   margin: 0 auto;
+}
+
+.hero-nav {
+  position: relative;
+  z-index: 30;
+  width: 100%;
   padding: 30px 0 42px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 28px;
   font-size: 13px;
+  transition:
+    background-color 0.25s ease,
+    backdrop-filter 0.25s ease,
+    box-shadow 0.25s ease,
+    border-radius 0.25s ease,
+    padding 0.25s ease;
+}
+
+.hero-nav.is-fixed {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 48px, 1100px);
+}
+
+.hero-nav.scrolled {
+  padding: 14px 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.22);
 }
 
 .hover:hover{
@@ -2235,6 +2265,10 @@ html {
     padding-bottom: 28px;
   }
 
+  .hero-nav.scrolled {
+    padding: 12px 14px;
+  }
+
   .nav-links {
     display: none;
   }
@@ -2319,9 +2353,17 @@ html {
 }
 
 @media (max-width: 560px) {
-  .hero-nav,
+  .hero-nav-spacer,
   .hero-content {
     width: min(100% - 32px, 1100px);
+  }
+
+  .hero-nav.is-fixed {
+    width: min(100% - 32px, 1100px);
+  }
+
+  .hero-nav {
+    width: 100%;
   }
 
   .hero-nav {

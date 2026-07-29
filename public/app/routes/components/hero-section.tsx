@@ -58,9 +58,37 @@ function StatCounter({ value }: { value: string }) {
 }
 
 export function HeroSection() {
+  const navRef = useRef<HTMLElement>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [navHeight, setNavHeight] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 24);
+    };
+
+    const measureNav = () => {
+      setNavHeight(navRef.current?.offsetHeight ?? 0);
+    };
+
+    handleScroll();
+    measureNav();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", measureNav);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", measureNav);
+    };
+  }, []);
+
   return (
     <section className="hero-section" aria-labelledby="hero-heading">
-      <nav className="hero-nav" aria-label="Main navigation">
+      <div className="hero-nav-spacer" style={{ height: navHeight || undefined }}>
+        <nav
+          ref={navRef}
+          className={`hero-nav${isScrolled ? " scrolled is-fixed" : ""}`}
+          aria-label="Main navigation"
+        >
         <a className="brand" href="/">
           Kamara AI
         </a>
@@ -78,7 +106,8 @@ export function HeroSection() {
             </a> */}
             <a className = "login-button cta" href="/#footer">Join-waitlist</a>
           </div>
-      </nav>
+        </nav>
+      </div>
 
       <div className="hero-content">
         <div className="hero-copy reveal">
