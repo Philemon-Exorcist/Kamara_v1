@@ -32,7 +32,10 @@ export function FaqSection() {
       <div className="faq-shell">
         <div className="faq-header reveal">
           <span className="faq-eyebrow">FAQs</span>
-          <h2 id="faq-heading">Frequently Asked Questions</h2>
+          <h2 id="faq-heading">
+            <span className="faq-heading-line">Frequently Asked</span>
+            <span className="faq-heading-line">Questions</span>
+          </h2>
           <p>
             We are here to help with common questions about Kamara AI, how it works, and what you can expect.
           </p>

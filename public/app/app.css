@@ -2038,16 +2038,17 @@ html {
 }
 
 .faq-shell {
-  width: min(100% - 48px, 1180px);
+  width: min(100% - 48px, 1100px);
   margin: 0 auto;
   display: flex;
+  
   align-items: flex-start;
-  gap: 28px;
+  gap: 90px;
 }
 
 .faq-header {
-  flex: 0 0 300px;
-  max-width: 300px;
+  flex: 0 0 490px;
+  max-width: 450px;
   margin: 0;
   position: sticky;
   top: 108px;
@@ -2069,10 +2070,14 @@ html {
 
 .faq-header h2 {
   margin: 14px 0 10px;
-  max-width: 280px;
+  max-width: 450px;
   font-size: clamp(32px, 4.2vw, 52px);
   line-height: 1;
   font-weight: 850;
+}
+
+.faq-heading-line {
+  display: block;
 }
 
 .faq-header p {
@@ -2084,7 +2089,7 @@ html {
 
 .faq-panel {
   flex: 1 1 0;
-  max-width: 760px;
+  max-width: 700px;
   background: #f5f5f5;
   border-radius: 24px;
   padding: 10px;
@@ -2472,7 +2477,7 @@ html {
   }
 
   .faq-shell {
-    width: min(100% - 32px, 1180px);
+    width: min(100% - 32px, 1100px);
     flex-direction: column;
     gap: 18px;
   }
