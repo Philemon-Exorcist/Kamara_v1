@@ -1719,9 +1719,9 @@ html {
 
 .why-best-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.86fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.72fr);
   align-items: start;
-  gap: 28px;
+  gap: 20px;
 }
 
 .why-best-media {
@@ -1745,17 +1745,17 @@ html {
 
 .why-best-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   background: #ffffff;
 }
 
 .why-best-item {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
-  min-height: 88px;
-  padding: 16px 18px;
+  min-height: 76px;
+  padding: 13px 14px;
   border: 1.5px solid #111111;
   border-radius: 10px;
   background: #ffffff;
@@ -1776,14 +1776,14 @@ html {
 }
 
 .why-best-item-number {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border-radius: 6px;
   background: #2563eb;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 850;
   line-height: 1;
 }
@@ -1800,7 +1800,7 @@ html {
 
 .why-best-item-content h3 {
   margin: 0 0 8px;
-  font-size: 19px;
+  font-size: 17px;
   line-height: 1.25;
   font-weight: 800;
 }
@@ -1808,8 +1808,8 @@ html {
 .why-best-item-content p {
   margin: 0;
   color: inherit;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .reviews-section {
