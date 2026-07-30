@@ -28,7 +28,7 @@ const clientAvatars = ["AM", "JL", "RK"];
 
 export function ReviewsSection() {
   return (
-    <section className="reviews-section" aria-labelledby="reviews-heading">
+    <section id="reviews" className="reviews-section" aria-labelledby="reviews-heading">
       <div className="reviews-shell">
         <div className="reviews-intro reveal reveal-left">
           <h2 id="reviews-heading">What Our Happy Clients Say</h2>
