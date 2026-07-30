@@ -9,7 +9,7 @@ import logging
 from google.genai import types
 from fastapi import WebSocket, WebSocketDisconnect
 from connection.connect_manager import manager
-from .toolset.tools import tools_handler
+from .canvas_exec import canvas_exec_handler
 
 logger = logging.getLogger("KamaraLogger")
 
@@ -59,13 +59,9 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                         logger.info("🗣️ Gemini model turn detected for %s", student_id)
 
                         for part in response.server_content.model_turn.parts:
-                            # Handle streaming text text if sent by the engine
+                            # Text output is intentionally not forwarded to the frontend.
                             if part.text:
-                                logger.info("📝 Gemini Text Segment: %s", part.text)
-                                await manager.send_json_message(
-                                    {"type": "assistant_text", "content": part.text},
-                                    student_id,
-                                )
+                                continue
 
                             # Handle voice binary data packets
                             if part.inline_data and part.inline_data.data:
@@ -98,12 +94,13 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                 # Handle tool operations
                 if response.tool_call:
                     logger.info("🎨 Gemini triggered whiteboard tool for student: %s", student_id)
-                    await tools_handler(
-                        student_id=student_id,
-                        session=session,
-                        tool_call=response.tool_call,
-                        websocket=websocket
-                    )
+                    if any(getattr(fc, "name", "") == "tldraw_canvas_exec" for fc in response.tool_call.function_calls):
+                        await canvas_exec_handler(
+                            student_id=student_id,
+                            session=session,
+                            tool_call=response.tool_call,
+                            websocket=websocket,
+                        )
 
             except (WebSocketDisconnect, RuntimeError) as socket_dead_err:
                 # Raising this error tells the TaskGroup to cleanly shut down everything.

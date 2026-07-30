@@ -6,11 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import SUPABASE_KEY_ROLE, SUPABASE_PROJECT_URL
 from app.routes import router
-from app import dashboard as dashboard_routes
 from app.waitlist import waitlist_router
 from connection.websocket import socket_router
 from pages.profile import profile_router
 from pages.dashboard import dashboard_router
+from pages import recent_sessions
 from pages.courses import course_router
 from core.cron import register_background_tasks,start_background_tasks,stop_background_tasks
 

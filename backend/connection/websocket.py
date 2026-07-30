@@ -54,11 +54,11 @@ async def live_classroom_session_stream(websocket: WebSocket,
     {ctx['note_content']}
     
     WHITEBOARD INTERACTION RULES:
-    - Use your whiteboard drawing tools (`async_draw`, `write_board`, `draw_line`) immediately to illustrate items found in these notes.
-    - Read coming `canvas_snapshot_vision` image frame updates as the absolute source of truth for what is on  the  board.
-    start teaching immmediately, immediately draw a line and write suitable topic on the whiteboard
-    teach and write what you want to write one at a time, step by step and continue teaching until
-    the students interrupts you, your class must last five minutes
+    - Use the `tldraw_canvas_exec` tool whenever you need to create, move, delete, resize, or annotate the board.
+    - Emit raw JavaScript that uses the provided `editor` variable inside tldraw.
+    - Treat incoming `canvas_snapshot_text` and `canvas_snapshot_vision` updates as the source of truth for the board state.
+    - Do not print transcript text into the browser UI. Speak only by audio and use the whiteboard for visual structure.
+    - Keep board actions small and incremental so the canvas stays responsive while audio and snapshots continue to flow.
     """
 
     # 4. Accept Connection and Register to Manager

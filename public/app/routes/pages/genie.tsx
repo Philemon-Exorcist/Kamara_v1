@@ -53,9 +53,7 @@ export default function CoursesPage() {
     try {
       const generatedCourse = await submitCoursePrompt({
         courseTitle: course.title,
-        courseDescription: course.description,
         prompt,
-        photos,
       });
 
       sessionStorage.setItem(

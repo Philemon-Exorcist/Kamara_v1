@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { type Editor, type TLGeoShape, type TLShapeId, Tldraw, createShapeId, toRichText } from "tldraw";
+import { type Editor, type IndexKey, type TLGeoShape, type TLShapeId, Tldraw, createShapeId, toRichText } from "tldraw";
 import "tldraw/tldraw.css";
 
 export type BoardCommand =
@@ -171,18 +171,18 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
         type: "line",
         x: command.data.x,
         y: command.data.y,
-        props: {
-          color: "blue",
-          dash: "solid",
-          size: "m",
-          spline: isCurve ? "cubic" : "line",
-          points: {
-            start: { id: "start", index: "a1", x: 0, y: 0 },
-            end: { id: "end", index: "a2", x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
+          props: {
+            color: "blue",
+            dash: "solid",
+            size: "m",
+            spline: isCurve ? "cubic" : "line",
+            points: {
+              start: { id: "start", index: "a1" as IndexKey, x: 0, y: 0 },
+              end: { id: "end", index: "a2" as IndexKey, x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
+            },
+            scale: 1,
           },
-          scale: 1,
-        },
-      });
+        });
       break;
     }
   }
@@ -207,8 +207,8 @@ export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
   }, [onEditorReady]);
 
   return (
-    <div style={{ width: "100%", height: "100%", minHeight: 400 }}>
-      <Tldraw onMount={handleMount} />
+    <div style={{ width: "100%", height: "100%", minHeight: 400, background: "#fff" }}>
+      <Tldraw hideUi onMount={handleMount} />
     </div>
   );
 }

@@ -7,9 +7,9 @@ from fastapi import WebSocket
 from google import genai
 from google.genai import types, Client
 
+from .canvas_exec import canvas_tools
 from .response_handler import receive_response_from_ai
 from .task_handler import forward_frontend_mic_and_canvas_to_gemini
-from .toolset.tools import tools
 
 load_dotenv()
 logger = logging.getLogger("KamaraLogger")
@@ -39,7 +39,7 @@ async def agent(student_id: str, websocket: WebSocket, system_prompt: str):
         speech_config={
             "voice_config": {"prebuilt_voice_config": {"voice_name": "Kore"}}
         },
-        tools=[tools, {"google_search": {}}],
+        tools=[canvas_tools],
     )
 
     try:

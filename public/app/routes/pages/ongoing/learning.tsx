@@ -228,6 +228,8 @@ export default function DashboardPage() {
   const assistantAudioNextTimeRef = useRef<number>(0);
   const assistantAudioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const boardSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCanvasSnapshotTextRef = useRef<string>("");
+  const isSendingCanvasSnapshotRef = useRef(false);
   const micChunkCountRef = useRef(0);
   const micLastVoiceAtRef = useRef(0);
   const pendingBoardCommandsRef = useRef<unknown[]>([]);
@@ -283,8 +285,7 @@ export default function DashboardPage() {
         }
 
         if (payload.type === "chat_response") {
-          // You can handle chat responses from the backend here
-          console.log("AI Response:", payload.content);
+          return;
         }
       } catch {
         setModules(fallbackModules);
@@ -442,6 +443,19 @@ export default function DashboardPage() {
     }
   };
 
+  const executeCanvasScript = (javascriptCode: string) => {
+    if (!boardEditor || !javascriptCode.trim()) {
+      return;
+    }
+
+    try {
+      const runner = new Function("editor", javascriptCode);
+      runner(boardEditor);
+    } catch (error) {
+      console.error("Could not execute canvas JavaScript:", error);
+    }
+  };
+
   useEffect(() => {
     if (!boardEditor || pendingBoardCommandsRef.current.length === 0) {
       return;
@@ -451,6 +465,17 @@ export default function DashboardPage() {
     pendingBoardCommandsRef.current = [];
 
     queuedCommands.forEach((command) => {
+      if (command && typeof command === "object" && (command as { type?: string }).type === "exec_js") {
+        executeCanvasScript(
+          String(
+            (command as { code?: string; javascript_code?: string }).code ??
+              (command as { code?: string; javascript_code?: string }).javascript_code ??
+              ""
+          )
+        );
+        return;
+      }
+
       applyBoardPayload(command);
     });
   }, [boardEditor]);
@@ -496,12 +521,19 @@ export default function DashboardPage() {
       return;
     }
 
+    if (isSendingCanvasSnapshotRef.current) {
+      return;
+    }
+
+    isSendingCanvasSnapshotRef.current = true;
+
     try {
       const snapshot = await serializeTldrawJson(boardEditor);
-      console.info("[Tutor WS] Sending canvas_snapshot_text", {
-        characters: snapshot.length,
-        sessionId: tutorSocketRef.current?.url,
-      });
+      if (snapshot === lastCanvasSnapshotTextRef.current) {
+        return;
+      }
+
+      lastCanvasSnapshotTextRef.current = snapshot;
 
       socket.send(
         JSON.stringify({
@@ -526,10 +558,6 @@ export default function DashboardPage() {
       }
 
       const image = await blobToDataUrl(imageResult.blob);
-      console.info("[Tutor WS] Sending canvas_snapshot_vision", {
-        imageChars: image.length,
-        sessionId: tutorSocketRef.current?.url,
-      });
 
       socket.send(
         JSON.stringify({
@@ -539,6 +567,8 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error("Could not serialize board snapshot:", error);
+    } finally {
+      isSendingCanvasSnapshotRef.current = false;
     }
   };
 
@@ -652,11 +682,10 @@ export default function DashboardPage() {
             return;
           }
 
-          if (payload.type === "system_status") {
-            pushTutorEvent({ type: payload.type, title: payload.content });
-            console.log(payload.content);
-            return;
-          }
+        if (payload.type === "system_status") {
+          pushTutorEvent({ type: payload.type, title: payload.content });
+          return;
+        }
 
           if (payload.type === "system_error") {
             pushTutorEvent({
@@ -668,26 +697,55 @@ export default function DashboardPage() {
             return;
           }
 
-          if (payload.type === "assistant_text") {
-            pushTutorEvent({
-              type: payload.type,
-              title: "Tutor said something",
-              detail: payload.content,
-            });
-            return;
-          }
+        if (payload.type === "assistant_text") {
+          return;
+        }
 
           if (payload.type === "assistant_audio") {
             void playAssistantAudio(payload as AssistantAudioPayload);
             return;
           }
 
+          if (payload.type === "exec_js") {
+            if (!boardEditor) {
+              pendingBoardCommandsRef.current.push(payload);
+              return;
+            }
+
+            const execPayload = payload as { code?: string; javascript_code?: string };
+            executeCanvasScript(String(execPayload.code ?? execPayload.javascript_code ?? ""));
+            return;
+          }
+
           if (payload.type === "tool_call") {
-            pushTutorEvent({
-              type: payload.type,
-              title: `Tool call: ${payload.name}`,
-              detail: JSON.stringify(payload.payload ?? payload.data ?? payload.args ?? {}),
-            });
+            if (payload.name === "tldraw_canvas_exec") {
+              const execPayload = payload as {
+                payload?: { javascript_code?: string };
+                data?: { javascript_code?: string };
+                args?: { javascript_code?: string };
+              };
+              if (!boardEditor) {
+                pendingBoardCommandsRef.current.push({
+                  type: "exec_js",
+                  code:
+                    execPayload.payload?.javascript_code ??
+                    execPayload.data?.javascript_code ??
+                    execPayload.args?.javascript_code ??
+                    "",
+                });
+                return;
+              }
+
+              executeCanvasScript(
+                String(
+                  execPayload.payload?.javascript_code ??
+                    execPayload.data?.javascript_code ??
+                    execPayload.args?.javascript_code ??
+                    ""
+                )
+              );
+              return;
+            }
 
             applyBoardPayload(payload.payload ?? payload.data);
             return;
@@ -750,7 +808,6 @@ export default function DashboardPage() {
         scheduleBoardSnapshot();
       },
       {
-        source: "user",
         scope: "document",
       }
     );

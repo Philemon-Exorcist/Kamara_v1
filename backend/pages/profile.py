@@ -34,7 +34,7 @@ async def get_user_profile_page(current_user: dict = Depends(verify_student_toke
     try:
         # Step A: Query the user's personal details from the profiles table
         profile_query = supabase.table("profiles")\
-            .select("full_name", "email", "avatar_url")\
+            .select("email, first_name, last_name, avatar_url")\
             .eq("id", student_id)\
             .maybe_single()\
             .execute()
@@ -44,8 +44,11 @@ async def get_user_profile_page(current_user: dict = Depends(verify_student_toke
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Student profile metadata records not found."
             )
-            
+
         profile_data = profile_query.data
+        full_name = " ".join(
+            part for part in [profile_data.get("first_name"), profile_data.get("last_name")] if part
+        ).strip() or profile_data.get("email", "Student")
 
         # Fallback values if the user hasn't initialized a subscription tracking row yet
         plan_tier = "starter"
@@ -54,13 +57,13 @@ async def get_user_profile_page(current_user: dict = Depends(verify_student_toke
         try:
             # Optional table: some deployments do not have subscription tracking yet.
             sub_query = supabase.table("subscriptions")\
-                .select("plan_tier", "status")\
+                .select("plan", "status")\
                 .eq("user_id", student_id)\
                 .maybe_single()\
                 .execute()
 
             if sub_query and getattr(sub_query, 'data', None):
-                plan_tier = sub_query.data.get("plan_tier", "starter")
+                plan_tier = sub_query.data.get("plan", "starter")
                 sub_status = sub_query.data.get("status", "trial")
         except Exception as subscription_error:
             logger.warning("Subscription lookup skipped for profile: %s", str(subscription_error))
@@ -69,7 +72,7 @@ async def get_user_profile_page(current_user: dict = Depends(verify_student_toke
         return {
             "id": student_id,
             "email": profile_data.get("email"),
-            "full_name": profile_data.get("full_name"),
+            "full_name": full_name,
             "plan_tier": plan_tier,
             "subscription_status": sub_status,
             "avatar_url": profile_data.get("avatar_url")

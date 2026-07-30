@@ -68,7 +68,8 @@ export const authApi = {
     const payload = {
       email: credentials.email,
       password: credentials.password,
-      full_name: `${credentials.firstName.trim()} ${credentials.lastName.trim()}`.trim(),
+      first_name: credentials.firstName.trim(),
+      last_name: credentials.lastName.trim(),
     };
 
     const response = await apiFetch("/auth/signup", {

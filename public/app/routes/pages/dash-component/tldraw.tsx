@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
   type Editor,
+  type IndexKey,
   type TLGeoShape,
   type TLShapeId,
   Tldraw,
@@ -217,14 +218,27 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
           size: 'm',
           spline: isCurve ? 'cubic' : 'line',
           points: {
-            start: { id: 'start', index: 'a1', x: 0, y: 0 },
-            end: { id: 'end', index: 'a2', x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
+            start: { id: 'start', index: 'a1' as IndexKey, x: 0, y: 0 },
+            end: { id: 'end', index: 'a2' as IndexKey, x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
           },
           scale: 1,
         },
       });
       break;
     }
+  }
+}
+
+function executeCanvasScript(editor: Editor, javascriptCode: string) {
+  if (!javascriptCode.trim()) {
+    return;
+  }
+
+  try {
+    const runner = new Function("editor", javascriptCode);
+    runner(editor);
+  } catch (error) {
+    console.error("Could not execute canvas JavaScript:", error);
   }
 }
 
@@ -319,6 +333,10 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
           command.action !== 'clear_board' &&
           command.action !== 'draw_line'
         ) {
+          if (payload.type === 'exec_js') {
+            const execPayload = payload as { code?: string; javascript_code?: string };
+            executeCanvasScript(editor, String(execPayload.code ?? execPayload.javascript_code ?? ''));
+          }
           return;
         }
 
@@ -347,8 +365,8 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   }, [connectBoardSocket, disconnectBoardSocket, sessionId]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 400 }}>
-      <Tldraw onMount={handleMount} />
+    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff' }}>
+      <Tldraw hideUi onMount={handleMount} />
     </div>
   );
 };

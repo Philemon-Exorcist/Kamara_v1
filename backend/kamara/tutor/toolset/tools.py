@@ -185,11 +185,7 @@ async def tools_handler(student_id: str, session, tool_call, websocket: WebSocke
         )
 
     try:
-        await session.send(
-            input=types.LiveClientRealtimeInput(
-                function_responses=function_responses
-            )
-        )
+        await session.send_tool_response(function_responses=function_responses)
         logger.info("Sent %s tool response receipt(s) back to Gemini.", len(function_responses))
     except Exception as stream_err:
         logger.error("Failed to stream tool confirmation back to Gemini: %s", str(stream_err))

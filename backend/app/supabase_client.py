@@ -11,11 +11,12 @@ from supabase import create_client, Client, ClientOptions
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+if not SUPABASE_URL or not SUPABASE_ANON_KEY or not SUPABASE_SERVICE_KEY:
     raise RuntimeError(
-        "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in backend/.env or the environment."
+        "SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_KEY must be set in backend/.env or the environment."
     )
 
 parsed_url = urlparse(SUPABASE_URL)
@@ -63,6 +64,20 @@ def get_supabase_admin() -> Client:
             auto_refresh_token=False,  
             persist_session=False      
         )
+    )
+
+
+def get_supabase_public() -> Client:
+    """
+    Creates a public Supabase client for user-facing auth flows like sign_up.
+    """
+    return create_client(
+        SUPABASE_PROJECT_URL,
+        SUPABASE_ANON_KEY,
+        options=ClientOptions(
+            auto_refresh_token=False,
+            persist_session=False,
+        ),
     )
 
 """
@@ -182,7 +197,6 @@ supabase_admin: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_SERVICE_KE
 
 
 """
-
 
 
 

@@ -4,8 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 
+from datetime import datetime, timedelta, timezone
+
 #from .supabase_client import supabase_admin
-from .supabase_client import get_supabase_admin
+from .supabase_client import get_supabase_admin, get_supabase_public
 from .auth import verify_student_token
 
 logger = logging.getLogger("KamaraLogger")
@@ -24,19 +26,7 @@ class UserAuthCredentials(BaseModel):
             raise ValueError("Password must be at least 8 characters long.")
         return value
 
-
 class SignupCredentials(UserAuthCredentials):
-    full_name: str
-
-    @field_validator("full_name")
-    @classmethod
-    def validate_full_name(cls, value):
-        if len(value.strip()) < 2:
-            raise ValueError("Please enter your full name.")
-        return value.strip()
-
-
-class SignupSplitCredentials(UserAuthCredentials):
     first_name: str
     last_name: str
 
@@ -54,6 +44,7 @@ class ForgotPassword(BaseModel):
 
 class UpdatePasswordRequest(BaseModel):
     access_token: str
+    refresh_token: str
     new_password: str
 
 
@@ -63,41 +54,69 @@ class EmailVerification(BaseModel):
 
 
 @router.post("/auth/signup")
-async def process_signup(payload: SignupSplitCredentials):
+async def process_signup(payload: SignupCredentials):
     logger.info("Attempting to register new student: %s", payload.email)
     
-    supabase_admin = get_supabase_admin()
-    full_name = f"{payload.first_name} {payload.last_name}".strip()
+    first_name = f"{payload.first_name}".strip()
+    last_name = f"{payload.last_name}".strip()
 
     try:
-        auth_user = supabase_admin.auth.admin.create_user(
+        supabase_public = get_supabase_public()
+        auth_user = supabase_public.auth.sign_up(
             {
                 "email": payload.email,
                 "password": payload.password,
-                "email_confirm": True, #False,
-                "user_metadata": {
-                    "full_name": full_name,
+                "options": {
+                    "data": {
+                        "first_name": first_name,
+                        "last_name": last_name,
+                    },
+                    "email_redirect_to": "http://localhost:5173/login",
                 },
             }
         )
     except Exception as e:
-        logger.error("SUPABASE AUTH CREATE USER FAILED: %s: %s", type(e).__name__, str(e))
+        logger.error("SUPABASE AUTH SIGNUP FAILED: %s: %s", type(e).__name__, str(e))
         raise HTTPException(
             status_code=400,
-            detail=f"Supabase Auth user creation failed: {str(e)}",
+            detail=f"Supabase Auth signup failed: {str(e)}",
         )
 
-    student_id = auth_user.user.id
+    user = getattr(auth_user, "user", None)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Supabase signup did not return a user.",
+        )
+
+    student_id = user.id
     logger.info("Successfully registered user in auth.users. Assigned UUID: %s", student_id)
 
     try:
+        supabase_admin = get_supabase_admin()
         supabase_admin.table("profiles").insert(
             {
                 "id": student_id,
-                "email": auth_user.user.email,
-                "full_name": full_name,
+                "email": user.email,
+                "first_name": first_name,
+                "last_name": last_name
             }
         ).execute()
+
+
+        trial_start = datetime.now(timezone.utc)
+        trial_end = trial_start + timedelta(days=7)
+
+        supabase_admin.table("subscriptions").insert({
+            "user_id": student_id,
+            "plan": "starter",
+            "status": "trial",
+            "trial_started_at": trial_start.isoformat(),
+            "trial_ends_at": trial_end.isoformat()
+        }).execute()
+
+
+        
     except Exception as e:
         logger.error("SUPABASE PROFILE INSERT FAILED: %s: %s", type(e).__name__, str(e))
         raise HTTPException(
@@ -115,21 +134,32 @@ async def process_signup(payload: SignupSplitCredentials):
 @router.post("/auth/login")
 async def process_login(payload: UserAuthCredentials):
 
-    supabase_admin = get_supabase_admin()
+    supabase_public = get_supabase_public()
     try:
-        session = supabase_admin.auth.sign_in_with_password(
+        session = supabase_public.auth.sign_in_with_password(
             {
                 "email": payload.email,
                 "password": payload.password,
             }
         )
+        user_metadata = getattr(session.user, "user_metadata", None) or {}
+        display_name = " ".join(
+            part for part in [
+                user_metadata.get("first_name", ""),
+                user_metadata.get("last_name", ""),
+            ]
+            if part
+        ).strip() or user_metadata.get("full_name", "") or session.user.email or "Student"
         return {
             "access_token": session.session.access_token,
             "user_id": session.user.id,
             "user": {
                 "id": session.user.id,
                 "email": session.user.email,
-                "full_name": (getattr(session.user, "user_metadata", None) or {}).get("full_name", ""),
+                "name": display_name,
+                "full_name": display_name,
+                "first_name": user_metadata.get("first_name", ""),
+                "last_name": user_metadata.get("last_name", ""),
             },
         }
     except Exception as e:
@@ -145,7 +175,7 @@ async def get_current_auth_user(current_user=Depends(verify_student_token)):
     profile = {}
     try:
         profile_query = supabase_admin.table("profiles")\
-            .select("email, full_name")\
+            .select("email, first_name, last_name, avatar_url")\
             .eq("id", student_id)\
             .maybe_single()\
             .execute()
@@ -155,43 +185,22 @@ async def get_current_auth_user(current_user=Depends(verify_student_token)):
 
     metadata = getattr(current_user, "user_metadata", {}) or {}
     email = profile.get("email") or getattr(current_user, "email", "")
-    full_name = profile.get("full_name") or metadata.get("full_name", "")
+    first_name = profile.get("first_name") or metadata.get("first_name", "")
+    last_name = profile.get("last_name") or metadata.get("last_name", "")
+    full_name = profile.get("full_name") or metadata.get("full_name", "") or " ".join(
+        part for part in [first_name, last_name] if part
+    ).strip()
 
     return {
         "id": student_id,
         "email": email,
         "name": full_name or email or "Student",
         "full_name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "avatar_url": profile.get("avatar_url"),
     }
     
-
-
-@router.post("/auth/verify")
-async def verify_email_token(payload: EmailVerification):
-    logger.info("Received email token verification request.")
-    
-    supabase = get_supabase_admin()
-    
-    try:
-        # Hand the token over to Supabase Identity Core to activate the account
-        response = supabase.auth.verify_otp({
-            "token_hash": payload.token_hash,
-            "type": "signup"  # Tells Supabase this is a new signup verification
-        })
-        
-        logger.info("Email verification successful for user.")
-        return {
-            "status": "success",
-            "message": "Your email has been successfully verified! and account. You can now log in.",
-            "user_id": response.user.id
-        }
-        
-    except Exception as e:
-        logger.error("EMAIL VERIFICATION FAILED: %s", str(e))
-        raise HTTPException(
-            status_code=400,
-            detail="The verification link is invalid or has expired. Please try signing up again."
-        )
 
 
 
@@ -200,15 +209,15 @@ async def forgot_password(payload:ForgotPassword):
     clean_email = payload.email.strip().lower()
     logger.info("Password reset requested for: %s", clean_email)
     
-    supabase_admin = get_supabase_admin()
+    supabase_public = get_supabase_public()
     
     try:
         # Supabase will look up the email and send them a secure recovery link
-        supabase_admin.auth.reset_password_for_email(
+        supabase_public.auth.reset_password_for_email(
             clean_email,
             options={
                 # Tell Supabase where to redirect the user's browser when they click the email link
-                "redirect_to": "http://localhost:3000/reset-password"  # Change to live frontend URL 
+                "redirect_to": "http://localhost:5173/reset-password"
             }
         )
         
@@ -230,13 +239,12 @@ async def forgot_password(payload:ForgotPassword):
 async def process_password_update(payload: UpdatePasswordRequest):
     logger.info("Attempting to process user password update.")
     
-    # Crucial: We must create a client that sets the user's specific session token 
-    # so Supabase knows WHICH user's password is being changed.
-    supabase = get_supabase_admin()
+    # Crucial: use the user's recovery session, not the service role client.
+    supabase = get_supabase_public()
     
     try:
-        # 1. Authenticate the temporary session using the token React sent down
-        supabase.auth.set_session(payload.access_token, "")
+        # 1. Authenticate the temporary session using the recovery tokens React sent down.
+        supabase.auth.set_session(payload.access_token, payload.refresh_token)
         
         # 2. Update the user's password securely
         supabase.auth.update_user({"password": payload.new_password})
