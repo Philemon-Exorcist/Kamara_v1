@@ -4,7 +4,7 @@ export const AUTH_PAGES_ENABLED = (() => {
     return explicitToggle.toLowerCase() === "true";
   }
 
-  return import.meta.env.DEV;
+  return true;
 })();
 
 export function isAuthFlowEnabled() {
