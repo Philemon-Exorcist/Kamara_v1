@@ -108,6 +108,25 @@ function getShapeId(id: string): TLShapeId {
   return id.startsWith('shape:') ? (id as TLShapeId) : createShapeId(id);
 }
 
+function clearTldrawStorage() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageBuckets = [window.localStorage, window.sessionStorage];
+  for (const storage of storageBuckets) {
+    const keys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && /tldraw/i.test(key)) {
+        keys.push(key);
+      }
+    }
+
+    keys.forEach((key) => storage.removeItem(key));
+  }
+}
+
 function getGeoShape(shape: string): TLGeoShape['props']['geo'] {
   switch (shape) {
     case 'circle':
@@ -160,6 +179,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
   switch (command.action) {
     case 'draw_shape': {
       const id = getShapeId(command.data.id);
+      const defaultGeoProps = editor.getShapeUtil('geo').getDefaultProps();
 
       editor.createShape({
         id,
@@ -167,6 +187,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultGeoProps,
           geo: getGeoShape(command.data.shape),
           w: command.data.width,
           h: command.data.height,
@@ -180,6 +201,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
     case 'write_text': {
       const id = getShapeId(command.data.id.replace(/^text:/, 'text-'));
+      const defaultTextProps = editor.getShapeUtil('text').getDefaultProps();
 
       editor.createShape({
         id,
@@ -187,6 +209,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultTextProps,
           richText: toRichText(command.data.text),
           autoSize: true,
           color: 'black',
@@ -237,6 +260,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
       const id = getShapeId(command.data.id);
       const lineType = command.data.line_type ?? (command.data as { type?: string }).type;
       const isCurve = lineType === 'curve';
+      const defaultLineProps = editor.getShapeUtil('line').getDefaultProps();
 
       editor.createShape({
         id,
@@ -244,6 +268,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultLineProps,
           color: 'blue',
           dash: 'solid',
           size: 'm',
@@ -371,6 +396,8 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   );
 
   useEffect(() => {
+    clearTldrawStorage();
+
     connectBoardSocket();
 
     return () => {
@@ -379,7 +406,7 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   }, [connectBoardSocket, disconnectBoardSocket, sessionId]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff' }}>
+    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff', overflow: 'hidden', position: 'relative' }}>
       <Tldraw hideUi onMount={handleMount} />
     </div>
   );

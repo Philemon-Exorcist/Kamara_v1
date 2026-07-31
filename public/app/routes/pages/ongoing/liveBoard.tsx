@@ -107,6 +107,7 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
   switch (command.action) {
     case "draw_shape": {
       const id = getShapeId(command.data.id);
+      const defaultGeoProps = editor.getShapeUtil("geo").getDefaultProps();
 
       editor.createShape({
         id,
@@ -114,6 +115,7 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultGeoProps,
           geo: getGeoShape(command.data.shape),
           w: command.data.width,
           h: command.data.height,
@@ -127,6 +129,7 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
     case "write_text": {
       const id = getShapeId(command.data.id.replace(/^text:/, "text-"));
+      const defaultTextProps = editor.getShapeUtil("text").getDefaultProps();
 
       editor.createShape({
         id,
@@ -134,6 +137,7 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultTextProps,
           richText: toRichText(command.data.text),
           autoSize: true,
           color: "black",
@@ -184,24 +188,26 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
       const id = getShapeId(command.data.id);
       const lineType = command.data.line_type ?? (command.data as { type?: string }).type;
       const isCurve = lineType === "curve";
+      const defaultLineProps = editor.getShapeUtil("line").getDefaultProps();
 
       editor.createShape({
         id,
         type: "line",
         x: command.data.x,
         y: command.data.y,
-          props: {
-            color: "blue",
-            dash: "solid",
-            size: "m",
-            spline: isCurve ? "cubic" : "line",
-            points: {
-              start: { id: "start", index: "a1" as IndexKey, x: 0, y: 0 },
-              end: { id: "end", index: "a2" as IndexKey, x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
-            },
-            scale: 1,
+        props: {
+          ...defaultLineProps,
+          color: "blue",
+          dash: "solid",
+          size: "m",
+          spline: isCurve ? "cubic" : "line",
+          points: {
+            start: { id: "start", index: "a1" as IndexKey, x: 0, y: 0 },
+            end: { id: "end", index: "a2" as IndexKey, x: isCurve ? 180 : 140, y: isCurve ? 80 : 0 },
           },
-        });
+          scale: 1,
+        },
+      });
       break;
     }
   }
@@ -227,7 +233,16 @@ export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
   }, [onEditorReady]);
 
   return (
-    <div style={{ width: "100%", height: "100%", minHeight: 400, background: "#fff" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: 400,
+        background: "#fff",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       <Tldraw hideUi onMount={handleMount} />
     </div>
   );

@@ -211,7 +211,6 @@ export default function DashboardPage() {
   const [isLearningPanelOpen, setIsLearningPanelOpen] = useState(true);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [boardEditor, setBoardEditor] = useState<Editor | null>(null);
-  const [tutorEvents, setTutorEvents] = useState<TutorEvent[]>([]);
   const [tutorNotice, setTutorNotice] = useState<{ type: "info" | "warning" | "error"; message: string } | null>(null);
 
   const moduleSocketRef = useRef<WebSocket | null>(null);
@@ -423,10 +422,6 @@ export default function DashboardPage() {
     }
   };
 
-  const pushTutorEvent = (event: TutorEvent) => {
-    setTutorEvents((current) => [event, ...current].slice(0, 8));
-  };
-
   const extractBoardCommand = (payload: unknown) => {
     if (!payload || typeof payload !== "object") {
       return null;
@@ -486,7 +481,11 @@ export default function DashboardPage() {
       candidate.action === "clear_board" ||
       candidate.action === "draw_line"
     ) {
-      applyBoardCommand(boardEditor, candidate as BoardCommand);
+      try {
+        applyBoardCommand(boardEditor, candidate as BoardCommand);
+      } catch (error) {
+        console.error("Could not apply tutor board command", error);
+      }
     }
   };
 
@@ -814,20 +813,14 @@ export default function DashboardPage() {
             return;
           }
 
-        if (payload.type === "system_status") {
-          pushTutorEvent({ type: payload.type, title: payload.content });
+        if (payload.type === "system_error") {
+          setTutorNotice({
+            type: "error",
+            message: payload.content ?? payload.detail ?? "Tutor engine error",
+          });
+          disconnectTutorSession();
           return;
         }
-
-          if (payload.type === "system_error") {
-            pushTutorEvent({
-              type: payload.type,
-              title: payload.content ?? "Tutor engine error",
-              detail: payload.detail,
-            });
-            disconnectTutorSession();
-            return;
-          }
 
           if (payload.type === "assistant_audio") {
             void playAssistantAudio(payload as AssistantAudioPayload);
@@ -849,20 +842,8 @@ export default function DashboardPage() {
             return;
           }
 
-          if (payload.type === "tool_result") {
-            pushTutorEvent({
-              type: payload.type,
-              title: `Tool result: ${payload.name}`,
-              detail: JSON.stringify(payload.result ?? {}),
-            });
-            return;
-          }
         } catch {
-          pushTutorEvent({
-            type: "message",
-            title: "Tutor message",
-            detail: event.data,
-          });
+          return;
         }
       };
 
@@ -966,6 +947,9 @@ export default function DashboardPage() {
       }
 
       const audioContext = new AudioContext({ sampleRate: 16000 });
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createScriptProcessor(512, 1, 1);
       const silentGain = audioContext.createGain();
@@ -1053,7 +1037,7 @@ export default function DashboardPage() {
         : [];
 
   return (
-    <main className="min-h-screen bg-white text-slate-900 p-6">
+    <main className="min-h-screen overflow-x-hidden bg-white text-slate-900 p-6">
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-blue-100 pb-4 mb-6" aria-label="Course navigation">
         <nav className="flex flex-wrap items-center gap-4 mb-4 md:mb-0">
           <a href="/dashboard" className="text-sm font-semibold text-blue-700 inline-flex items-center gap-2">
@@ -1070,7 +1054,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <section className="grid min-h-[calc(100vh-160px)] gap-4 xl:grid-cols-[minmax(0,1fr)_auto_auto]" aria-label="Learning workspace">
+      <section className="grid min-h-[calc(100vh-160px)] gap-4 overflow-hidden xl:grid-cols-[minmax(0,1fr)_auto_auto]" aria-label="Learning workspace">
         <div className="min-w-0 overflow-hidden rounded-lg border border-blue-100 bg-white shadow-sm">
           <div className="border-b border-blue-100 p-5">
             <h1 className="text-2xl font-bold text-slate-900">{courseTitle}</h1>
@@ -1081,7 +1065,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="h-[58vh] min-h-[420px]">
+          <div className="h-[58vh] min-h-[420px] overflow-hidden">
             <LiveBoard key={activeSessionId ?? "live-board"} sessionId={activeSessionId ?? undefined} onEditorReady={setBoardEditor} />
           </div>
 
@@ -1136,22 +1120,6 @@ export default function DashboardPage() {
                   {tutorNotice.type === "error" ? "Microphone needs attention" : tutorNotice.type === "warning" ? "Microphone not ready yet" : "Mic guidance"}
                 </div>
                 <p className="mt-1 leading-6">{tutorNotice.message}</p>
-              </div>
-            )}
-            {tutorEvents.length > 0 && (
-              <div className="mt-3 rounded-lg border border-blue-100 bg-slate-50 p-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tutor stream</h3>
-                  <span className="text-xs text-slate-400">{isTutorConnected ? "Live" : "Offline"}</span>
-                </div>
-                <div className="mt-2 space-y-2">
-                  {tutorEvents.map((event, index) => (
-                    <div key={`${event.type}-${index}`} className="rounded-md bg-white p-2 text-sm text-slate-700 shadow-sm">
-                      <div className="font-semibold text-slate-900">{event.title}</div>
-                      {event.detail && <div className="mt-1 break-words text-xs text-slate-500">{event.detail}</div>}
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </div>

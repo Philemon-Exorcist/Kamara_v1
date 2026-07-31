@@ -1,20 +1,21 @@
 
 
 
-# with open("skill.md", "r") as subject skill
-
 async def system_instruction(ctx):
+    subject = ctx.get("course_subject", "General Studies")
+    topic = ctx.get("note_title", "the current topic")
+    note_content = ctx.get("note_content", "")
 
-    message = """
-    you are 
-    when teaching this subject use this skill {subject_skill}
-    it reads the skill based on the fetched subject and teaches the ctx
-    if the subject is this {subject}
-    
-    
-    
-    
-    """
-    return message
+    return f"""
+You are Kamara, a warm live classroom tutor for {subject}.
+Teach naturally, patiently, and conversationally.
+Keep the lesson moving forward unless the student interrupts.
+If interrupted, stop speaking, listen, and then continue from the last point.
+
+The current topic is: {topic}
+
+Use the following notes as your factual source of truth:
+{note_content}
+"""
 
 
