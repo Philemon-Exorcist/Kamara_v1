@@ -3,9 +3,13 @@
 from fastapi import Header, HTTPException, status
 #from .supabase_client import supabase_admin # old supabase client initialization
 from .supabase_client import get_supabase_admin
+from .runtime import is_auth_flow_enabled
 
 async def verify_student_token(authorization: str = Header(None)) -> dict:
     """ Firewall layer intercepting incoming tokens from React """
+    if not is_auth_flow_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access denied.Missing or Malformed Token")
     

@@ -1,0 +1,20 @@
+export const AUTH_PAGES_ENABLED = (() => {
+  const explicitToggle = import.meta.env.VITE_ENABLE_AUTH_PAGES;
+  if (typeof explicitToggle === "string") {
+    return explicitToggle.toLowerCase() === "true";
+  }
+
+  return import.meta.env.DEV;
+})();
+
+export function isAuthFlowEnabled() {
+  return AUTH_PAGES_ENABLED;
+}
+
+export function getAuthCtaHref() {
+  return isAuthFlowEnabled() ? "/signup" : "/#footer";
+}
+
+export function getAuthCtaLabel(defaultLabel: string) {
+  return isAuthFlowEnabled() ? defaultLabel : "Join the waitlist";
+}

@@ -3,8 +3,17 @@ import { ArrowLeft, CheckCircle2, GraduationCap } from "lucide-react";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
+import { AuthGate } from "./auth-gate";
 
 export default function ForgotPasswordPage() {
+  return (
+    <AuthGate>
+      <ForgotPasswordContent />
+    </AuthGate>
+  );
+}
+
+function ForgotPasswordContent() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");

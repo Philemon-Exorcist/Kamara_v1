@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
+import { AuthGate } from "./auth-gate";
 
 type RecoveryCredentials = {
   accessToken?: string;
@@ -23,6 +24,14 @@ function readRecoveryCredentials(search: string, hash: string): RecoveryCredenti
 }
 
 export default function ResetPasswordPage() {
+  return (
+    <AuthGate>
+      <ResetPasswordContent />
+    </AuthGate>
+  );
+}
+
+function ResetPasswordContent() {
   const location = useLocation();
   const navigate = useNavigate();
 

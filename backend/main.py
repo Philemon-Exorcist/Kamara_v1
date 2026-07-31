@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import SUPABASE_KEY_ROLE, SUPABASE_PROJECT_URL
+from app.runtime import get_cors_allowed_origins
 from app.routes import router
 from app.waitlist import waitlist_router
 from connection.websocket import socket_router
@@ -37,15 +38,7 @@ app.state.keepalive_task = None
 # Cross-Origin resource allowances so React client can fetch records securely
 app.add_middleware(
     CORSMiddleware,
-   # allow_origins=[
-      #  "http://localhost:3000",
-      #  "http://127.0.0.1:3000",
-       # "http://localhost:5173", how to lock ths dowm for only our url
-       # "http://127.0.0.1:5173",
-       # "http://localhost:5174",
-       # "http://127.0.0.1:5174",
-   # ],
-    allow_origins=["*"],  # 👈 For development, we allow all origins. Lock this down in production!
+    allow_origins=get_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
