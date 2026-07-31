@@ -9,8 +9,8 @@ from .schemas import WriterContentBundle, WriterModuleSchema, WriterRequestSchem
 from .source_loader import build_writer_content_bundle
 
 logger = logging.getLogger("KamaraLogger")
-WRITER_MODEL = "gemini-3.5-flash"
-
+#WRITER_MODEL = "gemini-3.5-flash"
+WRITER_MODEL="gemini-3.6-flash"
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = Client(api_key=api_key,http_options={"api_version": "v1alpha"})
