@@ -14,6 +14,7 @@ LOCAL_CORS_ORIGINS = (
 PRODUCTION_CORS_ORIGINS = (
     "https://kamara.study",
     "https://www.kamara.study",
+    "https://kamara-beta.vercel.app"
 )
 
 
@@ -49,16 +50,14 @@ def _split_origins(raw_value: str | None) -> list[str]:
 
 def get_cors_allowed_origins() -> list[str]:
     custom_origins = _split_origins(os.getenv("CORS_ALLOWED_ORIGINS"))
-    if custom_origins:
-        return custom_origins
-
     if is_production_environment():
         frontend_origin = os.getenv("FRONTEND_APP_URL", "https://kamara.study").rstrip("/")
-        origins = {frontend_origin, *PRODUCTION_CORS_ORIGINS}
-        return sorted(origins)
+        origins = {frontend_origin, *PRODUCTION_CORS_ORIGINS, *LOCAL_CORS_ORIGINS}
+    else:
+        origins = set(LOCAL_CORS_ORIGINS)
+        frontend_origin = os.getenv("FRONTEND_APP_URL", "https://kamara.study").rstrip("/")
+        if frontend_origin:
+            origins.add(frontend_origin)
 
-    origins = set(LOCAL_CORS_ORIGINS)
-    frontend_origin = os.getenv("FRONTEND_APP_URL", "").rstrip("/")
-    if frontend_origin:
-        origins.add(frontend_origin)
+    origins.update(custom_origins)
     return sorted(origins)
