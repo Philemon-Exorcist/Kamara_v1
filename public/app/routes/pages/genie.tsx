@@ -1,9 +1,11 @@
 import { DashboardSidebar, DashboardTopbar } from "./dash-component";
 import { BookOpen, BrainCircuit, FlaskConical, Atom, Grid3X3, Calculator } from "lucide-react";
 import { useState, useMemo, type ReactNode } from "react";
+import { Navigate } from "react-router";
 import { useNavigate } from "react-router";
 import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./genie-api";
 import CourseModal from "./ongoing/courseModal";
+import { isLoggedIn } from "../auth/session";
 
 type Course = {
   title: string;
@@ -30,6 +32,10 @@ export function meta() {
 }
 
 export default function CoursesPage() {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

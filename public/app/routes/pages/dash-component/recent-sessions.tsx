@@ -1,7 +1,9 @@
 import { DashboardSidebar, DashboardTopbar } from ".";
 import { BookOpen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router";
 import { dashboardApi, type DashboardSession } from "../dashboard-api";
+import { isLoggedIn } from "../../auth/session";
 
 export function meta() {
   return [
@@ -14,6 +16,10 @@ export function meta() {
 }
 
 export default function RecentSessionsPage() {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sessions, setSessions] = useState<DashboardSession[]>([]);
@@ -75,7 +81,7 @@ export default function RecentSessionsPage() {
                   <p className="text-sm text-slate-600 mb-4">{getSessionDescription(course)}</p>
                   {course.created_at ? <p className="text-xs text-slate-500 mb-4">Started {formatDate(course.created_at)}</p> : null}
                 </div>
-                <a href="/pages/ongoing/learning" className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">
+                <a href="/ongoing/learning" className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">
                   Continue Learning &rarr;
                 </a>
               </div>

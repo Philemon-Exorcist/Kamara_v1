@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { getWebSocketBaseUrl } from '../../api-config';
 import {
   type Editor,
   type IndexKey,
@@ -11,10 +12,7 @@ import {
 import 'tldraw/tldraw.css';
 import { getGeneratedCourseStorageKey } from '../genie-api';
 
-const WS_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'ws://localhost:8001/ws/api/v1'
-    : 'wss://kamsi-t57w.onrender.com/ws/api/v1';
+const WS_BASE_URL = getWebSocketBaseUrl();
 // will add cloud run url 
 type BoardCommand =
   | {
