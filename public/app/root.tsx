@@ -6,12 +6,23 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  Navigate,
   useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
 import "./animations.css";
+import { isLoggedIn } from "./routes/auth/session";
+
+const PUBLIC_ROUTES = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/update-password",
+  "/reset-password",
+]);
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -46,6 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const location = useLocation();
+  const isPublicRoute = PUBLIC_ROUTES.has(location.pathname);
 
   useEffect(() => {
     const observerOptions = {
@@ -68,6 +80,10 @@ export default function App() {
 
     return () => observer.disconnect();
   }, [location.pathname]);
+
+  if (!isLoggedIn() && !isPublicRoute) {
+    return <Navigate to="/login" replace />;
+  }
 
   return <Outlet />;
 }
