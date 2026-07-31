@@ -10,7 +10,7 @@ import {
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
 import { clearSession } from "../auth/session";
-import { DashboardGate } from "./dashboard-gate";
+import { ProtectedGate } from "../auth/protected-gate";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -24,9 +24,9 @@ export function meta({}: Route.MetaArgs) {
 
 export default function DashboardPage() {
   return (
-    <DashboardGate>
+    <ProtectedGate>
       <DashboardContent />
-    </DashboardGate>
+    </ProtectedGate>
   );
 }
 

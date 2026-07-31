@@ -33,5 +33,5 @@ export function getAuthCtaLabel(defaultLabel: string) {
 }
 
 export function getProtectedRouteRedirect() {
-  return isAppFlowEnabled() ? "/login" : "/";
+  return "/login";
 }

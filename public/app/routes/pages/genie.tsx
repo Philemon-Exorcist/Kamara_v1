@@ -1,12 +1,10 @@
 import { DashboardSidebar, DashboardTopbar } from "./dash-component";
 import { BookOpen, BrainCircuit, FlaskConical, Atom, Grid3X3, Calculator } from "lucide-react";
 import { useState, useMemo, type ReactNode } from "react";
-import { Navigate } from "react-router";
 import { useNavigate } from "react-router";
 import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./genie-api";
 import CourseModal from "./ongoing/courseModal";
-import { isLoggedIn } from "../auth/session";
-import { getProtectedRouteRedirect } from "../site-config";
+import { ProtectedGate } from "../auth/protected-gate";
 
 type Course = {
   title: string;
@@ -33,10 +31,6 @@ export function meta() {
 }
 
 export default function CoursesPage() {
-  if (!isLoggedIn()) {
-    return <Navigate to={getProtectedRouteRedirect()} replace />;
-  }
-
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,52 +76,54 @@ export default function CoursesPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <section className="md:ml-[300px] min-h-screen" aria-label="Courses">
-        <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} />
-        <div className="p-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-6">Courses</h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
-              <button
-                key={course.title}
-                type="button"
-                onClick={() => {
-                  setSubmitError("");
-                  setSelectedCourse(course);
-                }}
-                className="bg-white rounded-lg shadow-md p-6 flex flex-col justify-between text-left hover:shadow-lg transition-shadow focus:outline-none focus:ring-4 focus:ring-blue-100"
-              >
-                <div>
-                  <div className="text-blue-600 mb-4">{course.icon}</div>
-                  <h2 className="text-lg font-semibold text-slate-800 mb-2">{course.title}</h2>
-                  <p className="text-sm text-slate-600 mb-4">{course.description}</p>
+    <ProtectedGate>
+      <main className="min-h-screen bg-slate-100 text-slate-900">
+        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <section className="md:ml-[300px] min-h-screen" aria-label="Courses">
+          <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} />
+          <div className="p-6">
+            <h1 className="text-3xl font-bold text-slate-900 mb-6">Courses</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCourses.map((course) => (
+                <button
+                  key={course.title}
+                  type="button"
+                  onClick={() => {
+                    setSubmitError("");
+                    setSelectedCourse(course);
+                  }}
+                  className="bg-white rounded-lg shadow-md p-6 flex flex-col justify-between text-left hover:shadow-lg transition-shadow focus:outline-none focus:ring-4 focus:ring-blue-100"
+                >
+                  <div>
+                    <div className="text-blue-600 mb-4">{course.icon}</div>
+                    <h2 className="text-lg font-semibold text-slate-800 mb-2">{course.title}</h2>
+                    <p className="text-sm text-slate-600 mb-4">{course.description}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">Open Course &rarr;</span>
+                </button>
+              ))}
+              {filteredCourses.length === 0 && (
+                <div className="col-span-full text-center py-12 text-slate-500">
+                  <p className="text-lg font-semibold">No courses found</p>
+                  <p>Try adjusting your search query.</p>
                 </div>
-                <span className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">Open Course &rarr;</span>
-              </button>
-            ))}
-            {filteredCourses.length === 0 && (
-              <div className="col-span-full text-center py-12 text-slate-500">
-                <p className="text-lg font-semibold">No courses found</p>
-                <p>Try adjusting your search query.</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      </section>
-      <CourseModal
-        course={selectedCourse}
-        errorMessage={submitError}
-        isLoading={isSubmitting}
-        isOpen={Boolean(selectedCourse)}
-        onClose={() => {
-          if (!isSubmitting) {
-            setSelectedCourse(null);
-          }
-        }}
-        onSubmit={handleCoursePromptSubmit}
-      />
-    </main>
+        </section>
+        <CourseModal
+          course={selectedCourse}
+          errorMessage={submitError}
+          isLoading={isSubmitting}
+          isOpen={Boolean(selectedCourse)}
+          onClose={() => {
+            if (!isSubmitting) {
+              setSelectedCourse(null);
+            }
+          }}
+          onSubmit={handleCoursePromptSubmit}
+        />
+      </main>
+    </ProtectedGate>
   );
 }
