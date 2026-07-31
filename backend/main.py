@@ -5,12 +5,13 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import SUPABASE_KEY_ROLE, SUPABASE_PROJECT_URL
+from app.runtime import get_cors_allowed_origins
 from app.routes import router
-from app import dashboard as dashboard_routes
 from app.waitlist import waitlist_router
 from connection.websocket import socket_router
 from pages.profile import profile_router
 from pages.dashboard import dashboard_router
+from pages import recent_sessions
 from pages.courses import course_router
 from core.cron import register_background_tasks,start_background_tasks,stop_background_tasks
 
@@ -28,7 +29,7 @@ logger = logging.getLogger("KamaraLogger")
 app = FastAPI(title="AI Agentic Microservice")
 
 # add kamara url
-KEEP_ALIVE_URL = os.environ.get("KEEP_ALIVE_URL", "https://kamsi-t57w.onrender.com/health")
+KEEP_ALIVE_URL = os.environ.get("KEEP_ALIVE_URL", "https://kamara.onrender.com/health")
 KEEP_ALIVE_INTERVAL_SECONDS = int(os.environ.get("KEEP_ALIVE_INTERVAL_SECONDS", 600))
 ENABLE_KEEP_ALIVE = os.environ.get("ENABLE_KEEP_ALIVE", "true").lower() in ("1", "true", "yes")
 
@@ -37,15 +38,7 @@ app.state.keepalive_task = None
 # Cross-Origin resource allowances so React client can fetch records securely
 app.add_middleware(
     CORSMiddleware,
-   # allow_origins=[
-      #  "http://localhost:3000",
-      #  "http://127.0.0.1:3000",
-       # "http://localhost:5173", how to lock ths dowm for only our url
-       # "http://127.0.0.1:5173",
-       # "http://localhost:5174",
-       # "http://127.0.0.1:5174",
-   # ],
-    allow_origins=["*"],  # 👈 For development, we allow all origins. Lock this down in production!
+    allow_origins=get_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

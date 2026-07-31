@@ -4,8 +4,17 @@ import { useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
+import { AuthGate } from "./auth-gate";
 
 export default function SignupPage() {
+  return (
+    <AuthGate>
+      <SignupContent />
+    </AuthGate>
+  );
+}
+
+function SignupContent() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");

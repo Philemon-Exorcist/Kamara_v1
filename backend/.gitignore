@@ -10,3 +10,4 @@ wheels/
 .venv
 .dockerignore
 .env
+trashcode.py

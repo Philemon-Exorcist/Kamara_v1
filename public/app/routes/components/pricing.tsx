@@ -1,4 +1,5 @@
 import { ArrowRight, BadgeCheck, BrainCircuit, ShieldCheck, Sparkles } from "lucide-react";
+import { getAuthCtaHref, getAuthCtaLabel } from "../site-config";
 
 const pricingPlans = [
   {
@@ -53,6 +54,8 @@ const pricingPlans = [
 ];
 
 export function PricingSection() {
+  const ctaHref = getAuthCtaHref();
+
   return (
     <section id="pricing" className="pricing-section" aria-labelledby="pricing-heading">
       <div className="pricing-shell">
@@ -96,8 +99,8 @@ export function PricingSection() {
                 ))}
               </ul>
 
-              <a className={`pricing-cta ${plan.accent === "featured" ? "pricing-cta-primary" : ""}`} href="/signup">
-                {plan.cta}
+              <a className={`pricing-cta ${plan.accent === "featured" ? "pricing-cta-primary" : ""}`} href={ctaHref}>
+                {getAuthCtaLabel(plan.cta)}
                 <ArrowRight size={16} />
               </a>
             </article>

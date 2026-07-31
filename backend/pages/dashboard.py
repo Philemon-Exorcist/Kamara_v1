@@ -42,26 +42,29 @@ async def get_student_dashboard_view(current_user: dict = Depends(verify_student
     try:
         # Step A: Fetch real user metadata from profiles
         profile_query = supabase.table("profiles")\
-            .select("full_name")\
+            .select("email, first_name, last_name, avatar_url")\
             .eq("id", student_id)\
             .maybe_single()\
             .execute()
             
         full_name = "Student"
         if profile_query and getattr(profile_query, 'data', None):
-            full_name = profile_query.data.get("full_name", "Student")
+            profile_data = profile_query.data
+            full_name = " ".join(
+                part for part in [profile_data.get("first_name"), profile_data.get("last_name")] if part
+            ).strip() or profile_data.get("email", "Student")
 
         plan_tier = "starter"
         try:
             # Optional table: some deployments do not have subscription tracking yet.
             sub_query = supabase.table("subscriptions")\
-                .select("plan_tier")\
+                .select("plan")\
                 .eq("user_id", student_id)\
                 .maybe_single()\
                 .execute()
 
             if sub_query and getattr(sub_query, 'data', None):
-                plan_tier = sub_query.data.get("plan_tier", "starter")
+                plan_tier = sub_query.data.get("plan", "starter")
         except Exception as subscription_error:
             logger.warning("Subscription lookup skipped for dashboard: %s", str(subscription_error))
 
