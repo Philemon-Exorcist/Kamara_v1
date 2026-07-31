@@ -121,3 +121,20 @@ export async function loadCurrentUser(fetchUser: () => Promise<SessionUser>) {
   saveSessionUser(user);
   return user;
 }
+
+export async function validateSession(fetchUser: (accessToken: string) => Promise<SessionUser>) {
+  const token = getAccessToken();
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const user = await fetchUser(token);
+    saveSessionUser(user);
+    return user;
+  } catch {
+    clearSession();
+    return null;
+  }
+}
