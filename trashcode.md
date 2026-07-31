@@ -895,3 +895,26 @@ difference
         
 
 """
+
+
+
+
+
+
+import asyncio
+from google.genai.errors import APIError
+
+try:
+    response = await client.aio.models.generate_content(
+        model='gemini-3.5-flash',
+        contents=contents,
+        config=final_parsed_config_to_call
+    )
+except APIError as e:
+    if e.code == 503:
+        print("Gemini server overloaded. Triggering local fallback...")
+        # Insert your local static fallback definitions logic here
+        response = get_local_fallback_content()
+    else:
+        # Handle other API errors (e.g., 400 Bad Request, 403 Invalid Key)
+        raise e

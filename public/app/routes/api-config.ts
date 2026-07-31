@@ -10,8 +10,7 @@ export function getBaseUrl() {
   if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
     return LOCAL_API_URL;
   }
-
-  return PRODUCTION_API_URL;
+    return PRODUCTION_API_URL;
 }
 
 export function getWebSocketBaseUrl() {
