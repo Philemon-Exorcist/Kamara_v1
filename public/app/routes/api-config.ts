@@ -1,5 +1,5 @@
 export const LOCAL_API_URL = "http://localhost:8001/api/v1";
-export const PRODUCTION_API_URL = "https://kamsi-t57w.onrender.com/api/v1";
+export const PRODUCTION_API_URL = "https://kamara.onrender.com";
 
 /**
  * Determines the correct API base URL based on the current environment.
