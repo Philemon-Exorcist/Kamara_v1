@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./genie-api";
 import CourseModal from "./ongoing/courseModal";
 import { isLoggedIn } from "../auth/session";
+import { getProtectedRouteRedirect } from "../site-config";
 
 type Course = {
   title: string;
@@ -33,7 +34,7 @@ export function meta() {
 
 export default function CoursesPage() {
   if (!isLoggedIn()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={getProtectedRouteRedirect()} replace />;
   }
 
   const navigate = useNavigate();

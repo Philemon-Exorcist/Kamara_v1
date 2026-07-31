@@ -30,6 +30,7 @@ import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, typ
 import { getGeneratedCourseStorageKey } from "../genie-api";
 import { isLoggedIn } from "../../auth/session";
 import { getWebSocketBaseUrl } from "../../api-config";
+import { getProtectedRouteRedirect } from "../../site-config";
 
 type GeneratedCourseSession = {
   session_id?: string;
@@ -201,7 +202,7 @@ export function meta() {
 
 export default function DashboardPage() {
   if (!isLoggedIn()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={getProtectedRouteRedirect()} replace />;
   }
 
   const [modules, setModules] = useState<LearningModule[]>(fallbackModules);
