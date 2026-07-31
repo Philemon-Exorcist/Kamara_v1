@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router";
 import { dashboardApi, type DashboardSession } from "../dashboard-api";
 import { isLoggedIn } from "../../auth/session";
+import { getProtectedRouteRedirect } from "../../site-config";
 
 export function meta() {
   return [
@@ -17,7 +18,7 @@ export function meta() {
 
 export default function RecentSessionsPage() {
   if (!isLoggedIn()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={getProtectedRouteRedirect()} replace />;
   }
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);

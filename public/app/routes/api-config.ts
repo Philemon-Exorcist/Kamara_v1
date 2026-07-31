@@ -7,7 +7,7 @@ export const PRODUCTION_WS_URL = import.meta.env.VITE_WS_BASE_URL || "wss://kama
  * Determines the correct API base URL based on the current environment.
  */
 export function getBaseUrl() {
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
     return LOCAL_API_URL;
   }
 
@@ -15,7 +15,7 @@ export function getBaseUrl() {
 }
 
 export function getWebSocketBaseUrl() {
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
     return LOCAL_WS_URL;
   }
 
