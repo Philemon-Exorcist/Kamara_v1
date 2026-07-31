@@ -125,6 +125,37 @@ function getGeoShape(shape: string): TLGeoShape['props']['geo'] {
   }
 }
 
+function extractBoardCommand(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidate = payload as {
+    type?: string;
+    action?: string;
+    payload?: unknown;
+    data?: unknown;
+  };
+
+  if (candidate.type === 'tool_call') {
+    return candidate.payload ?? candidate.data ?? null;
+  }
+
+  if (candidate.action) {
+    return payload;
+  }
+
+  if (candidate.payload && typeof candidate.payload === 'object') {
+    return candidate.payload;
+  }
+
+  if (candidate.data && typeof candidate.data === 'object') {
+    return candidate.data;
+  }
+
+  return null;
+}
+
 function applyBoardCommand(editor: Editor, command: BoardCommand) {
   switch (command.action) {
     case 'draw_shape': {
@@ -229,19 +260,6 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
   }
 }
 
-function executeCanvasScript(editor: Editor, javascriptCode: string) {
-  if (!javascriptCode.trim()) {
-    return;
-  }
-
-  try {
-    const runner = new Function("editor", javascriptCode);
-    runner(editor);
-  } catch (error) {
-    console.error("Could not execute canvas JavaScript:", error);
-  }
-}
-
 const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => {
   const socketRef = useRef<WebSocket | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -312,35 +330,31 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
         const payload = JSON.parse(event.data) as Partial<BoardCommand> & {
           type?: string;
           action?: string;
-          payload?: Partial<BoardCommand>;
+          payload?: unknown;
+          data?: unknown;
         };
 
-        const command =
-          payload && typeof payload === 'object' && typeof payload.action === 'string'
-            ? payload
-            : payload?.payload;
+        const command = extractBoardCommand(payload);
 
-        if (!command || typeof command.action !== 'string') {
+        if (!command || typeof command !== 'object' || typeof (command as { action?: string }).action !== 'string') {
           return;
         }
+
+        const boardCommand = command as BoardCommand;
 
         if (
-          command.action !== 'draw_shape' &&
-          command.action !== 'write_text' &&
-          command.action !== 'move_shape' &&
-          command.action !== 'resize_item' &&
-          command.action !== 'delete_shape' &&
-          command.action !== 'clear_board' &&
-          command.action !== 'draw_line'
+          boardCommand.action !== 'draw_shape' &&
+          boardCommand.action !== 'write_text' &&
+          boardCommand.action !== 'move_shape' &&
+          boardCommand.action !== 'resize_item' &&
+          boardCommand.action !== 'delete_shape' &&
+          boardCommand.action !== 'clear_board' &&
+          boardCommand.action !== 'draw_line'
         ) {
-          if (payload.type === 'exec_js') {
-            const execPayload = payload as { code?: string; javascript_code?: string };
-            executeCanvasScript(editor, String(execPayload.code ?? execPayload.javascript_code ?? ''));
-          }
           return;
         }
 
-        applyBoardCommand(editor, command as BoardCommand);
+        applyBoardCommand(editor, boardCommand);
       } catch (error) {
         console.error('Could not apply tutor board command', error);
       }

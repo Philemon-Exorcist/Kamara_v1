@@ -1,20 +1,16 @@
 import { useState } from "react";
 import { ArrowLeft, CheckCircle2, GraduationCap } from "lucide-react";
-import { useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
-import { validate } from "./auth-api";
+import { authApi, validate } from "./auth-api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleSendCode = (e: React.FormEvent) => {
+  const handleSendLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setMessage("");
@@ -26,23 +22,16 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setCodeSent(true);
-      setMessage("Verification code sent to your email.");
+    try {
+      const response = await authApi.forgotPassword({ email });
+      setMessage(
+        response.message || "If an account exists with that email, a password reset link has been sent."
+      );
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-    }, 700);
-  };
-
-  const handleVerifyCode = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (!code.trim()) {
-      setError("Please enter the verification code.");
-      return;
     }
-
-    navigate("/reset-password", { state: { email, code } });
   };
 
   return (
@@ -64,7 +53,7 @@ export default function ForgotPasswordPage() {
 
           <div className="auth-form-wrap">
             <h1 id="forgot-password-heading">Reset your password</h1>
-            <p>Enter your email, request a code, then verify it to continue.</p>
+            <p>Enter your email and we will send a secure password reset link.</p>
 
             {message && (
               <div className="auth-success-banner" role="alert">
@@ -73,8 +62,12 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            <form className="auth-form" onSubmit={codeSent ? handleVerifyCode : handleSendCode}>
-              {error && <div className="auth-error-banner" role="alert"><span>{error}</span></div>}
+            <form className="auth-form" onSubmit={handleSendLink}>
+              {error && (
+                <div className="auth-error-banner" role="alert">
+                  <span>{error}</span>
+                </div>
+              )}
 
               <label htmlFor="forgot-email">
                 Email
@@ -89,22 +82,8 @@ export default function ForgotPasswordPage() {
                 />
               </label>
 
-              {codeSent && (
-                <label htmlFor="reset-code">
-                  Verification code
-                  <input
-                    id="reset-code"
-                    name="code"
-                    type="text"
-                    placeholder="Enter the code you received"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                </label>
-              )}
-
               <button className="auth-submit" type="submit" disabled={loading}>
-                {loading ? "Sending code..." : codeSent ? "Verify code" : "Send code"}
+                {loading ? "Sending link..." : "Send reset link"}
               </button>
             </form>
           </div>
@@ -114,10 +93,10 @@ export default function ForgotPasswordPage() {
           <img src={authImage} alt="Students learning together with a laptop" />
           <div className="auth-visual-content">
             <h2>Get back into your account fast</h2>
-            <p>We’ll help you verify your identity and set a new password in a few steps.</p>
+            <p>We’ll help you securely update your password in a few steps.</p>
             <div className="auth-pills" aria-label="Password reset steps">
               <span>Email</span>
-              <span>Code</span>
+              <span>Recovery link</span>
               <span>New password</span>
             </div>
           </div>

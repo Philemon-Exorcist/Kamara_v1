@@ -1,19 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
-import { validate } from "./auth-api";
+import { authApi, validate } from "./auth-api";
 
-type ResetState = {
-  email?: string;
+type RecoveryCredentials = {
+  accessToken?: string;
+  refreshToken?: string;
   code?: string;
 };
+
+function readRecoveryCredentials(search: string, hash: string): RecoveryCredentials {
+  const queryParams = new URLSearchParams(search);
+  const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+
+  return {
+    accessToken: queryParams.get("access_token") || hashParams.get("access_token") || undefined,
+    refreshToken: queryParams.get("refresh_token") || hashParams.get("refresh_token") || undefined,
+    code: queryParams.get("code") || hashParams.get("code") || undefined,
+  };
+}
 
 export default function ResetPasswordPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = (location.state || {}) as ResetState;
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,10 +33,16 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recoveryCredentials, setRecoveryCredentials] = useState<RecoveryCredentials>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setRecoveryCredentials(readRecoveryCredentials(location.search, location.hash));
+  }, [location.hash, location.search]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     const passErr = validate.password(password, true);
     if (passErr) {
@@ -43,12 +60,27 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    if (
+      !recoveryCredentials.code &&
+      (!recoveryCredentials.accessToken || !recoveryCredentials.refreshToken)
+    ) {
+      setError("This password reset link is missing recovery data. Please request a new link.");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await authApi.updatePassword({
+        ...recoveryCredentials,
+        newPassword: password,
+      });
       setSuccess("Password updated successfully. Redirecting to login...");
-      setLoading(false);
       setTimeout(() => navigate("/login"), 1600);
-    }, 700);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,9 +102,7 @@ export default function ResetPasswordPage() {
 
           <div className="auth-form-wrap">
             <h1 id="reset-password-heading">Create a new password</h1>
-            <p>
-              {state.email ? `Resetting password for ${state.email}.` : "Enter and confirm your new password."}
-            </p>
+            <p>Enter and confirm your new password to finish updating your account.</p>
 
             {success && (
               <div className="auth-success-banner" role="alert">
@@ -82,7 +112,11 @@ export default function ResetPasswordPage() {
             )}
 
             <form className="auth-form" onSubmit={handleSubmit}>
-              {error && <div className="auth-error-banner" role="alert"><span>{error}</span></div>}
+              {error && (
+                <div className="auth-error-banner" role="alert">
+                  <span>{error}</span>
+                </div>
+              )}
 
               <label htmlFor="new-password">
                 New password
@@ -124,7 +158,9 @@ export default function ResetPasswordPage() {
                     className="auth-password-toggle"
                     type="button"
                     onClick={() => setShowConfirmPassword((current) => !current)}
-                    aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"}
+                    aria-label={
+                      showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"
+                    }
                     aria-pressed={showConfirmPassword}
                   >
                     {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
@@ -143,7 +179,7 @@ export default function ResetPasswordPage() {
           <img src={authImage} alt="Students learning together with a laptop" />
           <div className="auth-visual-content">
             <h2>Finish the reset and sign in again</h2>
-            <p>Once your new password is saved, you’ll be sent back to the login page automatically.</p>
+            <p>Once your new password is saved, you will be sent back to the login page automatically.</p>
             <div className="auth-pills" aria-label="Password reset benefits">
               <span>Secure reset</span>
               <span>Quick login</span>

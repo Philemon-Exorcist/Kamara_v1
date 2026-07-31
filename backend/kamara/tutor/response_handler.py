@@ -4,12 +4,10 @@
 
 # app/tutor/outbound_worker.py
 import asyncio
-import base64
 import logging
-from google.genai import types
 from fastapi import WebSocket, WebSocketDisconnect
 from connection.connect_manager import manager
-from .canvas_exec import canvas_exec_handler
+from .toolset.tools import tools_handler
 
 logger = logging.getLogger("KamaraLogger")
 
@@ -54,7 +52,7 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                 if response.server_content:
                     # Log if it's an empty turn or system heartbeat ping
                     logger.info("ℹ️ Server content frame data metadata present.")
-                    
+
                     if response.server_content.model_turn:
                         logger.info("🗣️ Gemini model turn detected for %s", student_id)
 
@@ -67,6 +65,7 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                             if part.inline_data and part.inline_data.data:
                                 # 🚀 FIX: Assign the data to the variable FIRST before printing or routing!
                                 audio_bytes = part.inline_data.data
+                                audio_mime_type = getattr(part.inline_data, "mime_type", None) or "audio/pcm;rate=24000"
 
                                 logger.info(
                                     "🔥 SUCCESS: Received raw voice bytes from Gemini for %s | Length=%s bytes",
@@ -80,7 +79,7 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
                                     len(audio_bytes)
                                 )
 
-                                # Push raw sound down the websocket channel pipe
+                                # Send raw audio bytes directly to the browser for lower latency playback.
                                 await manager.send_binary_audio(audio_bytes, student_id)
 
                     # Capture conversational interruptions
@@ -93,14 +92,13 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
 
                 # Handle tool operations
                 if response.tool_call:
-                    logger.info("🎨 Gemini triggered whiteboard tool for student: %s", student_id)
-                    if any(getattr(fc, "name", "") == "tldraw_canvas_exec" for fc in response.tool_call.function_calls):
-                        await canvas_exec_handler(
-                            student_id=student_id,
-                            session=session,
-                            tool_call=response.tool_call,
-                            websocket=websocket,
-                        )
+                    logger.info("🎨 Gemini triggered whiteboard tool(s) for student: %s", student_id)
+                    await tools_handler(
+                        student_id=student_id,
+                        session=session,
+                        tool_call=response.tool_call,
+                        websocket=websocket,
+                    )
 
             except (WebSocketDisconnect, RuntimeError) as socket_dead_err:
                 # Raising this error tells the TaskGroup to cleanly shut down everything.
@@ -119,82 +117,4 @@ async def receive_response_from_ai(session, student_id: str, websocket: WebSocke
 
 
 
-"""
-import asyncio
-import base64
-import logging
 
-from google.genai import types
-
-from connection.connect_manager import manager
-from .toolset.tools import tools_handler
-from fastapi import WebSocket
-
-logger = logging.getLogger("KamaraLogger")
-
-
-async def receive_response_from_ai(session, student_id: str,
-                                   websocket: WebSocket
-                                   ):
-    
-    Receives text, voice, and tool calls from Gemini Live and streams them to the browser.
-
-    try:
-        async for response in session.receive():
-            try:
-                 # 🔍 VISIBILITY LOG 1: Track every single response wrapper frame hitting your server
-                logger.info(f"📥 Received raw response packet from Gemini for {student_id}")
-                if response.server_content and response.server_content.model_turn:
-                    logger.info(f"🗣️ Gemini model turn detected for {student_id}")
-
-                    for part in response.server_content.model_turn.parts:
-                        # Print if text strings are coming through
-                        #if part.text:
-                       #     logger.info(f"📝 Gemini Text Output: {part.text}")
-                       #     await websocket.send_json({"type": "assistant_text", "content": part.text})
-
-                        if part.inline_data and part.inline_data.data:
-                            logger.info(
-                                "🔥 SUCCESS: Received raw voice bytes from Gemini for %s | Length=%s bytes",
-                                student_id,
-                                len(audio_bytes)
-                            )
-
-                            audio_bytes = part.inline_data.data
-                          
-
-                            logger.info(
-                                "Gemini audio chunk ready for %s | bytes=%s | mime_type=%s",
-                                student_id,
-                                len(audio_bytes)
-                            )
-
-                            await websocket.send_bytes(audio_bytes)
-
-                     
-                            #await manager.send_binary_audio(audio_bytes,student_id)
-
-                if response.server_content and response.server_content.interrupted:
-                    logger.info("🤫 Student %s interrupted the AI tutor.", student_id)
-                    await manager.send_json_message({"action": "stop_audio_playback"}, student_id)
-
-                if response.tool_call:
-                    logger.info("🎨 Gemini triggered whiteboard tool for student: %s", student_id)
-
-                    await tools_handler(
-                        student_id=student_id,
-                        session=session,
-                        tool_call=response.tool_call,
-                        websocket=websocket
-                    )
-            except Exception as item_err:
-                logger.error("Failed to process stream frame for student %s: %s", student_id, str(item_err))
-                continue
-
-    except asyncio.CancelledError:
-        logger.info("Gemini stream receiver task safely cancelled for student %s.", student_id)
-    except Exception as e:
-        logger.error("❌ Error in AI response listener loop for student %s: %s", student_id, str(e))
-
-        
-"""

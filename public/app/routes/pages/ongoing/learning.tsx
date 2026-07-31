@@ -22,7 +22,7 @@ import {
   Video,
   MicOff,
 } from "lucide-react";
-import { type Editor, serializeTldrawJson } from "tldraw";
+import { type Editor, serializeTldrawJson, toRichText } from "tldraw";
 
 import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
@@ -57,9 +57,6 @@ const WS_BASE_URL =
     ? "ws://localhost:8001/ws/api/v1"
     : "wss://kamsi-t57w.onrender.com/ws/api/v1";
 const COURSE_MODULES_WS_ENDPOINT = `${WS_BASE_URL}/courses/hrm/modules`;
-const MIC_RMS_THRESHOLD = 0.012;
-const MIC_HANGOVER_MS = 250;
-
 function isAudioStreamingSupported() {
   return typeof window !== "undefined" && "MediaRecorder" in window && "WebSocket" in window;
 }
@@ -233,6 +230,7 @@ export default function DashboardPage() {
   const micChunkCountRef = useRef(0);
   const micLastVoiceAtRef = useRef(0);
   const pendingBoardCommandsRef = useRef<unknown[]>([]);
+  const previousSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const storageKey = getGeneratedCourseStorageKey();
@@ -261,6 +259,22 @@ export default function DashboardPage() {
       sessionStorage.removeItem(storageKey);
     }
   }, []);
+
+  const activeSessionId = getGeneratedSessionId(generatedSession) ?? getActiveSessionId() ?? getStoredGeneratedSessionId();
+
+  useEffect(() => {
+    const previousSessionId = previousSessionIdRef.current;
+    previousSessionIdRef.current = activeSessionId ?? null;
+
+    if (!previousSessionId || previousSessionId === activeSessionId) {
+      return;
+    }
+
+    disconnectTutorSession();
+    pendingBoardCommandsRef.current = [];
+    lastCanvasSnapshotTextRef.current = "";
+    isSendingCanvasSnapshotRef.current = false;
+  }, [activeSessionId]);
 
   useEffect(() => {
     if (generatedSession) {
@@ -413,15 +427,48 @@ export default function DashboardPage() {
     setTutorEvents((current) => [event, ...current].slice(0, 8));
   };
 
+  const extractBoardCommand = (payload: unknown) => {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const candidate = payload as {
+      type?: string;
+      action?: string;
+      payload?: unknown;
+      data?: unknown;
+    };
+
+    if (candidate.type === "tool_call") {
+      return candidate.payload ?? candidate.data ?? null;
+    }
+
+    if (candidate.action) {
+      return payload;
+    }
+
+    if (candidate.payload && typeof candidate.payload === "object") {
+      return candidate.payload;
+    }
+
+    if (candidate.data && typeof candidate.data === "object") {
+      return candidate.data;
+    }
+
+    return null;
+  };
+
   const applyBoardPayload = (payload: unknown) => {
-    if (!boardEditor || !payload || typeof payload !== "object") {
+    const command = extractBoardCommand(payload);
+
+    if (!boardEditor || !command) {
       if (payload && typeof payload === "object") {
         pendingBoardCommandsRef.current.push(payload);
       }
       return;
     }
 
-    const candidate = payload as Partial<BoardCommand> & {
+    const candidate = command as Partial<BoardCommand> & {
       action?: string;
       data?: unknown;
     };
@@ -443,16 +490,104 @@ export default function DashboardPage() {
     }
   };
 
+  const normalizeCanvasShape = (shape: any) => {
+    if (!shape || typeof shape !== "object") {
+      return shape;
+    }
+
+    const normalized = {
+      ...shape,
+      props: { ...(shape.props ?? {}) },
+    };
+    const legacyText = normalized.text;
+    if ("text" in normalized) {
+      delete normalized.text;
+    }
+
+    if (normalized.type === "text") {
+      const richTextSource = normalized.props.text ?? legacyText;
+      if (!("richText" in normalized.props)) {
+        normalized.props.richText = toRichText(String(richTextSource ?? ""));
+      }
+      delete normalized.props.text;
+    }
+
+    if (normalized.type === "geo") {
+      delete normalized.props.text;
+    }
+
+    if (normalized.type === "arrow") {
+      if (!("richText" in normalized.props)) {
+        normalized.props.richText = toRichText(String(normalized.props.text ?? legacyText ?? ""));
+      }
+      delete normalized.props.text;
+
+      const start = normalized.props.start;
+      if (!start || typeof start !== "object" || Array.isArray(start)) {
+        normalized.props.start = { x: 0, y: 0 };
+      } else {
+        normalized.props.start = {
+          x: Number((start as { x?: unknown }).x ?? 0) || 0,
+          y: Number((start as { y?: unknown }).y ?? 0) || 0,
+        };
+      }
+
+      const end = normalized.props.end;
+      if (!end || typeof end !== "object" || Array.isArray(end)) {
+        normalized.props.end = { x: 140, y: 0 };
+      } else {
+        normalized.props.end = {
+          x: Number((end as { x?: unknown }).x ?? 140) || 0,
+          y: Number((end as { y?: unknown }).y ?? 0) || 0,
+        };
+      }
+    }
+
+    return normalized;
+  };
+
   const executeCanvasScript = (javascriptCode: string) => {
     if (!boardEditor || !javascriptCode.trim()) {
       return;
     }
 
     try {
+      const safeEditor = new Proxy(boardEditor, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver);
+
+          if ((prop === "createShape" || prop === "createShapes") && typeof value === "function") {
+            return (shape: any) => {
+              if (Array.isArray(shape)) {
+                return value.call(target, shape.map(normalizeCanvasShape));
+              }
+
+              return value.call(target, normalizeCanvasShape(shape));
+            };
+          }
+
+          if ((prop === "updateShape" || prop === "updateShapes") && typeof value === "function") {
+            return (shape: any) => {
+              if (Array.isArray(shape)) {
+                return value.call(target, shape.map(normalizeCanvasShape));
+              }
+
+              return value.call(target, normalizeCanvasShape(shape));
+            };
+          }
+
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+
       const runner = new Function("editor", javascriptCode);
-      runner(boardEditor);
+      runner(safeEditor);
     } catch (error) {
       console.error("Could not execute canvas JavaScript:", error);
+      setTutorNotice({
+        type: "warning",
+        message: "A whiteboard command used an older text format. The board stayed open, but that command was skipped.",
+      });
     }
   };
 
@@ -465,22 +600,16 @@ export default function DashboardPage() {
     pendingBoardCommandsRef.current = [];
 
     queuedCommands.forEach((command) => {
-      if (command && typeof command === "object" && (command as { type?: string }).type === "exec_js") {
-        executeCanvasScript(
-          String(
-            (command as { code?: string; javascript_code?: string }).code ??
-              (command as { code?: string; javascript_code?: string }).javascript_code ??
-              ""
-          )
-        );
-        return;
-      }
-
       applyBoardPayload(command);
     });
   }, [boardEditor]);
 
   const stopMicStream = () => {
+    const socket = tutorSocketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "audio_stream_end" }));
+    }
+
     audioProcessorRef.current?.disconnect();
     audioSourceRef.current?.disconnect();
     audioGainRef.current?.disconnect();
@@ -503,6 +632,9 @@ export default function DashboardPage() {
     clearBoardSnapshotTimer();
     stopMicStream();
     stopAssistantAudio();
+    pendingBoardCommandsRef.current = [];
+    lastCanvasSnapshotTextRef.current = "";
+    isSendingCanvasSnapshotRef.current = false;
 
     const socket = tutorSocketRef.current;
     tutorSocketRef.current = null;
@@ -593,7 +725,7 @@ export default function DashboardPage() {
     }
 
     const token = localStorage.getItem("access_token");
-    const sessionId = getGeneratedSessionId(generatedSession) ?? getActiveSessionId() ?? getStoredGeneratedSessionId();
+    const sessionId = activeSessionId;
 
     if (!token) {
       setTutorNotice({
@@ -697,57 +829,13 @@ export default function DashboardPage() {
             return;
           }
 
-        if (payload.type === "assistant_text") {
-          return;
-        }
-
           if (payload.type === "assistant_audio") {
             void playAssistantAudio(payload as AssistantAudioPayload);
             return;
           }
 
-          if (payload.type === "exec_js") {
-            if (!boardEditor) {
-              pendingBoardCommandsRef.current.push(payload);
-              return;
-            }
-
-            const execPayload = payload as { code?: string; javascript_code?: string };
-            executeCanvasScript(String(execPayload.code ?? execPayload.javascript_code ?? ""));
-            return;
-          }
-
           if (payload.type === "tool_call") {
-            if (payload.name === "tldraw_canvas_exec") {
-              const execPayload = payload as {
-                payload?: { javascript_code?: string };
-                data?: { javascript_code?: string };
-                args?: { javascript_code?: string };
-              };
-              if (!boardEditor) {
-                pendingBoardCommandsRef.current.push({
-                  type: "exec_js",
-                  code:
-                    execPayload.payload?.javascript_code ??
-                    execPayload.data?.javascript_code ??
-                    execPayload.args?.javascript_code ??
-                    "",
-                });
-                return;
-              }
-
-              executeCanvasScript(
-                String(
-                  execPayload.payload?.javascript_code ??
-                    execPayload.data?.javascript_code ??
-                    execPayload.args?.javascript_code ??
-                    ""
-                )
-              );
-              return;
-            }
-
-            applyBoardPayload(payload.payload ?? payload.data);
+            applyBoardPayload(payload);
             return;
           }
 
@@ -889,24 +977,6 @@ export default function DashboardPage() {
         }
 
         const input = event.inputBuffer.getChannelData(0);
-        let sumSquares = 0;
-        for (let index = 0; index < input.length; index += 1) {
-          const sample = input[index] ?? 0;
-          sumSquares += sample * sample;
-        }
-        const rms = Math.sqrt(sumSquares / Math.max(1, input.length));
-        const now = performance.now();
-        const isVoiceActive =
-          rms >= MIC_RMS_THRESHOLD || now - micLastVoiceAtRef.current < MIC_HANGOVER_MS;
-
-        if (rms >= MIC_RMS_THRESHOLD) {
-          micLastVoiceAtRef.current = now;
-        }
-
-        if (!isVoiceActive) {
-          return;
-        }
-
         const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
         socket.send(float32To16BitPCM(downsampled));
 
@@ -1012,7 +1082,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-[58vh] min-h-[420px]">
-            <LiveBoard sessionId={getGeneratedSessionId(generatedSession) ?? undefined} onEditorReady={setBoardEditor} />
+            <LiveBoard key={activeSessionId ?? "live-board"} sessionId={activeSessionId ?? undefined} onEditorReady={setBoardEditor} />
           </div>
 
           <div className="border-t border-blue-100 p-4">

@@ -52,6 +52,12 @@ export const validate = {
   },
 };
 
+export type RecoveryCredentials = {
+  accessToken?: string;
+  refreshToken?: string;
+  code?: string;
+};
+
 export const authApi = {
   async signup(credentials: { email: string; password: string; firstName: string; lastName: string }) {
     // 1. Perform client-side validation
@@ -104,6 +110,45 @@ export const authApi = {
     }
 
     // Upon success, the UI (login.tsx) stores the token and navigates to /dashboard
+    return response.json();
+  },
+
+  async forgotPassword(credentials: { email: string }) {
+    const emailErr = validate.email(credentials.email);
+    if (emailErr) throw new Error(emailErr);
+
+    const response = await apiFetch("/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: credentials.email }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, "We could not start the password reset flow."));
+    }
+
+    return response.json();
+  },
+
+  async updatePassword(credentials: RecoveryCredentials & { newPassword: string }) {
+    const passErr = validate.password(credentials.newPassword, true);
+    if (passErr) throw new Error(passErr);
+
+    const response = await apiFetch("/auth/update-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: credentials.accessToken,
+        refresh_token: credentials.refreshToken,
+        code: credentials.code,
+        new_password: credentials.newPassword,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiError(response, "Failed to update password."));
+    }
+
     return response.json();
   },
 

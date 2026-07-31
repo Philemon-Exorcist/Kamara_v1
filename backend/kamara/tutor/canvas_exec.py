@@ -14,7 +14,7 @@ canvas_tools = {
             "name": "tldraw_canvas_exec",
             "description": (
                 "Execute raw JavaScript against the mounted tldraw editor instance. "
-                "Use this for create, update, delete, move, resize, style, and grouping actions."
+                "Use this for create, update, delete, move, resize, style and grouping actions."
             ),
             "parameters": {
                 "type": "OBJECT",
@@ -47,7 +47,7 @@ async def canvas_exec_handler(student_id: str, session, tool_call, websocket: We
     if not tool_call or not tool_call.function_calls:
         return
 
-    function_responses: list[types.Part] = []
+    function_responses: list[types.FunctionResponse] = []
 
     for fc in tool_call.function_calls:
         if fc.name != "tldraw_canvas_exec":
@@ -86,12 +86,10 @@ async def canvas_exec_handler(student_id: str, session, tool_call, websocket: We
                 }
 
         function_responses.append(
-            types.Part(
-                function_response=types.FunctionResponse(
-                    name=fc.name,
-                    id=fc.id,
-                    response=receipt,
-                )
+            types.FunctionResponse(
+                name=fc.name,
+                id=fc.id,
+                response=receipt,
             )
         )
 

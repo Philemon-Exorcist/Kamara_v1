@@ -1,4 +1,5 @@
 import logging
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +14,10 @@ from .auth import verify_student_token
 logger = logging.getLogger("KamaraLogger")
 
 router = APIRouter(prefix="/api/v1")
+
+
+def get_frontend_app_url() -> str:
+    return os.getenv("FRONTEND_APP_URL", "http://localhost:5173").rstrip("/")
 
 
 class UserAuthCredentials(BaseModel):
@@ -43,9 +48,17 @@ class ForgotPassword(BaseModel):
 
 
 class UpdatePasswordRequest(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: str | None = None
+    refresh_token: str | None = None
+    code: str | None = None
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value):
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        return value
 
 
 # this is for verifying email
@@ -71,7 +84,7 @@ async def process_signup(payload: SignupCredentials):
                         "first_name": first_name,
                         "last_name": last_name,
                     },
-                    "email_redirect_to": "http://localhost:5173/login",
+                    "email_redirect_to": f"{get_frontend_app_url()}/login",
                 },
             }
         )
@@ -217,7 +230,7 @@ async def forgot_password(payload:ForgotPassword):
             clean_email,
             options={
                 # Tell Supabase where to redirect the user's browser when they click the email link
-                "redirect_to": "http://localhost:5173/reset-password"
+                "redirect_to": f"{get_frontend_app_url()}/update-password"
             }
         )
         
@@ -243,8 +256,16 @@ async def process_password_update(payload: UpdatePasswordRequest):
     supabase = get_supabase_public()
     
     try:
-        # 1. Authenticate the temporary session using the recovery tokens React sent down.
-        supabase.auth.set_session(payload.access_token, payload.refresh_token)
+        # 1. Authenticate the temporary session using the recovery link data.
+        if payload.code:
+            supabase.auth.exchange_code_for_session(payload.code)
+        elif payload.access_token and payload.refresh_token:
+            supabase.auth.set_session(payload.access_token, payload.refresh_token)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing recovery credentials from the password reset link.",
+            )
         
         # 2. Update the user's password securely
         supabase.auth.update_user({"password": payload.new_password})
@@ -254,6 +275,8 @@ async def process_password_update(payload: UpdatePasswordRequest):
             "status": "success",
             "message": "Your password has been changed successfully! You can now log in with your new password."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("PASSWORD UPDATE CRASH: %s", str(e))
         raise HTTPException(

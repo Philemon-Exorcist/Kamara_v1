@@ -7,9 +7,9 @@ from fastapi import WebSocket
 from google import genai
 from google.genai import types, Client
 
-from .canvas_exec import canvas_tools
 from .response_handler import receive_response_from_ai
 from .task_handler import forward_frontend_mic_and_canvas_to_gemini
+from .toolset.tools import tools
 
 load_dotenv()
 logger = logging.getLogger("KamaraLogger")
@@ -29,17 +29,26 @@ async def agent(student_id: str, websocket: WebSocket, system_prompt: str):
     """
     Orchestrates the Gemini Live session and bridges the browser WebSocket.
     """
-    model =  "gemini-2.5-flash-native-audio-preview-12-2025"
-    #model =  "gemini-live-2.5-flash-native-audio"
+    model = "gemini-3.1-flash-live-preview"
     config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
+        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+        realtime_input_config={
+            "automatic_activity_detection": {
+                "disabled": False,
+                "start_of_speech_sensitivity": types.StartSensitivity.START_SENSITIVITY_LOW,
+                "end_of_speech_sensitivity": types.EndSensitivity.END_SENSITIVITY_LOW,
+                "prefix_padding_ms": 120,
+                "silence_duration_ms": 700,
+            }
+        },
         system_instruction=types.Content(
             parts=[types.Part.from_text(text=system_prompt)]
         ),
         speech_config={
             "voice_config": {"prebuilt_voice_config": {"voice_name": "Kore"}}
         },
-        tools=[canvas_tools],
+        tools=[tools],
     )
 
     try:

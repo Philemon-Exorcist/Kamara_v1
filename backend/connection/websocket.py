@@ -52,10 +52,11 @@ async def live_classroom_session_stream(websocket: WebSocket,
     - UNIT TOPIC: {ctx['note_title']}
     - CONTENT MATERIAL:
     {ctx['note_content']}
-    
+
     WHITEBOARD INTERACTION RULES:
-    - Use the `tldraw_canvas_exec` tool whenever you need to create, move, delete, resize, or annotate the board.
-    - Emit raw JavaScript that uses the provided `editor` variable inside tldraw.
+    - Use the named whiteboard tools directly: `async_draw`, `write_board`, `move_item`, `adjust_item_size`, `delete_item`, `clear_whiteboard`, and `draw_line`.
+    - Keep each tool call small and specific so the frontend can render the change immediately.
+    - Wait for the tool response receipt before assuming the board update is complete.
     - Treat incoming `canvas_snapshot_text` and `canvas_snapshot_vision` updates as the source of truth for the board state.
     - Do not print transcript text into the browser UI. Speak only by audio and use the whiteboard for visual structure.
     - Keep board actions small and incremental so the canvas stays responsive while audio and snapshots continue to flow.

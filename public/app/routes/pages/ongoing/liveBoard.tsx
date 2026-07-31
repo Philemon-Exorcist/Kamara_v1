@@ -63,6 +63,25 @@ export type LiveBoardProps = {
   onEditorReady?: (editor: Editor | null) => void;
 };
 
+function clearTldrawStorage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const storageBuckets = [window.localStorage, window.sessionStorage];
+  for (const storage of storageBuckets) {
+    const keys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && /tldraw/i.test(key)) {
+        keys.push(key);
+      }
+    }
+
+    keys.forEach((key) => storage.removeItem(key));
+  }
+}
+
 function getShapeId(id: string): TLShapeId {
   return id.startsWith("shape:") ? (id as TLShapeId) : createShapeId(id);
 }
@@ -200,6 +219,7 @@ export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
   );
 
   useEffect(() => {
+    clearTldrawStorage();
     return () => {
       onEditorReady?.(null);
       editorRef.current = null;
