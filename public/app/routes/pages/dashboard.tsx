@@ -1,5 +1,6 @@
 import type { Route } from "./+types/dashboard";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   DashboardSidebar,
   DashboardTopbar,
@@ -8,6 +9,8 @@ import {
   WelcomePanel,
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
+import { clearSession } from "../auth/session";
+import { DashboardGate } from "./dashboard-gate";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -20,10 +23,19 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function DashboardPage() {
+  return (
+    <DashboardGate>
+      <DashboardContent />
+    </DashboardGate>
+  );
+}
+
+function DashboardContent() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [dashboardError, setDashboardError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     let ignore = false;
@@ -38,6 +50,12 @@ export default function DashboardPage() {
       })
       .catch((error) => {
         if (!ignore) {
+          if (error instanceof Error && /unauthorized|invalid session|access denied/i.test(error.message)) {
+            clearSession();
+            navigate("/login", { replace: true });
+            return;
+          }
+
           setDashboardError(error instanceof Error ? error.message : "Could not load your dashboard.");
         }
       });

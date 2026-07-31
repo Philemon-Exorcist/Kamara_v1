@@ -38,7 +38,7 @@ export default function CoursesPage() {
                   <h2 className="text-lg font-semibold text-slate-800 mb-2">{course.title}</h2>
                   <p className="text-sm text-slate-600 mb-4">{course.description}</p>
                 </div>
-                <a href="/pages/ongoing/learning" className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">
+                <a href="/ongoing/learning" className="text-sm font-semibold text-blue-600 hover:text-blue-700 self-start">
                   View Course &rarr;
                 </a>
               </div>

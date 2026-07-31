@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { getWebSocketBaseUrl } from '../../api-config';
 import {
   type Editor,
   type IndexKey,
@@ -11,10 +12,7 @@ import {
 import 'tldraw/tldraw.css';
 import { getGeneratedCourseStorageKey } from '../genie-api';
 
-const WS_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'ws://localhost:8001/ws/api/v1'
-    : 'wss://kamsi-t57w.onrender.com/ws/api/v1';
+const WS_BASE_URL = getWebSocketBaseUrl();
 // will add cloud run url 
 type BoardCommand =
   | {
@@ -108,6 +106,25 @@ function getShapeId(id: string): TLShapeId {
   return id.startsWith('shape:') ? (id as TLShapeId) : createShapeId(id);
 }
 
+function clearTldrawStorage() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageBuckets = [window.localStorage, window.sessionStorage];
+  for (const storage of storageBuckets) {
+    const keys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && /tldraw/i.test(key)) {
+        keys.push(key);
+      }
+    }
+
+    keys.forEach((key) => storage.removeItem(key));
+  }
+}
+
 function getGeoShape(shape: string): TLGeoShape['props']['geo'] {
   switch (shape) {
     case 'circle':
@@ -125,10 +142,42 @@ function getGeoShape(shape: string): TLGeoShape['props']['geo'] {
   }
 }
 
+function extractBoardCommand(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidate = payload as {
+    type?: string;
+    action?: string;
+    payload?: unknown;
+    data?: unknown;
+  };
+
+  if (candidate.type === 'tool_call') {
+    return candidate.payload ?? candidate.data ?? null;
+  }
+
+  if (candidate.action) {
+    return payload;
+  }
+
+  if (candidate.payload && typeof candidate.payload === 'object') {
+    return candidate.payload;
+  }
+
+  if (candidate.data && typeof candidate.data === 'object') {
+    return candidate.data;
+  }
+
+  return null;
+}
+
 function applyBoardCommand(editor: Editor, command: BoardCommand) {
   switch (command.action) {
     case 'draw_shape': {
       const id = getShapeId(command.data.id);
+      const defaultGeoProps = editor.getShapeUtil('geo').getDefaultProps();
 
       editor.createShape({
         id,
@@ -136,6 +185,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultGeoProps,
           geo: getGeoShape(command.data.shape),
           w: command.data.width,
           h: command.data.height,
@@ -149,6 +199,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
     case 'write_text': {
       const id = getShapeId(command.data.id.replace(/^text:/, 'text-'));
+      const defaultTextProps = editor.getShapeUtil('text').getDefaultProps();
 
       editor.createShape({
         id,
@@ -156,6 +207,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultTextProps,
           richText: toRichText(command.data.text),
           autoSize: true,
           color: 'black',
@@ -206,6 +258,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
       const id = getShapeId(command.data.id);
       const lineType = command.data.line_type ?? (command.data as { type?: string }).type;
       const isCurve = lineType === 'curve';
+      const defaultLineProps = editor.getShapeUtil('line').getDefaultProps();
 
       editor.createShape({
         id,
@@ -213,6 +266,7 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
         x: command.data.x,
         y: command.data.y,
         props: {
+          ...defaultLineProps,
           color: 'blue',
           dash: 'solid',
           size: 'm',
@@ -226,19 +280,6 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
       });
       break;
     }
-  }
-}
-
-function executeCanvasScript(editor: Editor, javascriptCode: string) {
-  if (!javascriptCode.trim()) {
-    return;
-  }
-
-  try {
-    const runner = new Function("editor", javascriptCode);
-    runner(editor);
-  } catch (error) {
-    console.error("Could not execute canvas JavaScript:", error);
   }
 }
 
@@ -312,35 +353,31 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
         const payload = JSON.parse(event.data) as Partial<BoardCommand> & {
           type?: string;
           action?: string;
-          payload?: Partial<BoardCommand>;
+          payload?: unknown;
+          data?: unknown;
         };
 
-        const command =
-          payload && typeof payload === 'object' && typeof payload.action === 'string'
-            ? payload
-            : payload?.payload;
+        const command = extractBoardCommand(payload);
 
-        if (!command || typeof command.action !== 'string') {
+        if (!command || typeof command !== 'object' || typeof (command as { action?: string }).action !== 'string') {
           return;
         }
+
+        const boardCommand = command as BoardCommand;
 
         if (
-          command.action !== 'draw_shape' &&
-          command.action !== 'write_text' &&
-          command.action !== 'move_shape' &&
-          command.action !== 'resize_item' &&
-          command.action !== 'delete_shape' &&
-          command.action !== 'clear_board' &&
-          command.action !== 'draw_line'
+          boardCommand.action !== 'draw_shape' &&
+          boardCommand.action !== 'write_text' &&
+          boardCommand.action !== 'move_shape' &&
+          boardCommand.action !== 'resize_item' &&
+          boardCommand.action !== 'delete_shape' &&
+          boardCommand.action !== 'clear_board' &&
+          boardCommand.action !== 'draw_line'
         ) {
-          if (payload.type === 'exec_js') {
-            const execPayload = payload as { code?: string; javascript_code?: string };
-            executeCanvasScript(editor, String(execPayload.code ?? execPayload.javascript_code ?? ''));
-          }
           return;
         }
 
-        applyBoardCommand(editor, command as BoardCommand);
+        applyBoardCommand(editor, boardCommand);
       } catch (error) {
         console.error('Could not apply tutor board command', error);
       }
@@ -357,6 +394,8 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   );
 
   useEffect(() => {
+    clearTldrawStorage();
+
     connectBoardSocket();
 
     return () => {
@@ -365,7 +404,7 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   }, [connectBoardSocket, disconnectBoardSocket, sessionId]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff' }}>
+    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff', overflow: 'hidden', position: 'relative' }}>
       <Tldraw hideUi onMount={handleMount} />
     </div>
   );

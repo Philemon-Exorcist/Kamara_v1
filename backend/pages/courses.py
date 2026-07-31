@@ -98,7 +98,7 @@ async def generate_course_modules(
             for index, mod_step in enumerate(modules_list, start=1):
                 module_title = mod_step.sub_topic if mod_step.sub_topic else f"Module {index}"
                 compiled_body = (
-                    f"### Teaching & Learning Objectives\n"
+                    f"### Topic Notes\n"
                     f"{mod_step.teaching_guidelines}\n\n"
                     f"### Comprehensive Textbook Study Notes\n"
                     f"{full_textbook_notes}"
