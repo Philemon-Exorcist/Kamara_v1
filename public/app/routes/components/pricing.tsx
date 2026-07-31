@@ -3,7 +3,8 @@ import { ArrowRight, BadgeCheck, BrainCircuit, ShieldCheck, Sparkles } from "luc
 const pricingPlans = [
   {
     name: "Starter",
-    price: "₦0",
+    priceUsd: "$4",
+    priceNgn: "₦6,600",
     period: "/month",
     description: "A simple way to test AI-guided learning and get started quickly.",
     accent: "starter",
@@ -13,13 +14,14 @@ const pricingPlans = [
       "Quick progress dashboard",
       "Community support",
     ],
-    cta: "Start free",
+    cta: "Get Started",
     icon: <BrainCircuit size={18} />,
   },
   {
     name: "Pro",
-    price: "₦10,000",
+    priceUsd: "$8",
     period: "/month",
+    priceNgn: "₦13,200",
     description: "For learners who want deeper feedback, live whiteboard coaching, and a stronger study routine.",
     accent: "featured",
     badge: "Most popular",
@@ -34,8 +36,9 @@ const pricingPlans = [
   },
   {
     name: "Group",
-    price: "₦20,000",
+    priceUsd: "$15",
     period: "/month",
+    priceNgn: "₦24,750",
     description: "For ambitious learners and families who want full guidance, personalization, and coaching support.",
     accent: "premium",
     features: [
@@ -77,8 +80,11 @@ export function PricingSection() {
               </div>
 
               <div className="pricing-price-row">
-                <strong>{plan.price}</strong>
-                <span>{plan.period}</span>
+                <div>
+                  <strong>{plan.priceUsd}</strong>
+                  <span className="pricing-price-ngn">{plan.priceNgn}</span>
+                </div>
+                <span className="pricing-period">{plan.period}</span>
               </div>
 
               <ul className="pricing-features" aria-label={`${plan.name} features`}>

@@ -53,12 +53,14 @@ export const validate = {
 };
 
 export const authApi = {
-  async signup(credentials: { email: string; password: string; name: string }) {
+  async signup(credentials: { email: string; password: string; firstName: string; lastName: string }) {
     // 1. Perform client-side validation
-    const nameErr = validate.name(credentials.name);
+    const firstNameErr = validate.name(credentials.firstName);
+    const lastNameErr = validate.name(credentials.lastName);
     const emailErr = validate.email(credentials.email);
     const passErr = validate.password(credentials.password, true);
-    if (nameErr) throw new Error(nameErr);
+    if (firstNameErr) throw new Error(firstNameErr);
+    if (lastNameErr) throw new Error(lastNameErr);
     if (emailErr) throw new Error(emailErr);
     if (passErr) throw new Error(passErr);
 
@@ -66,7 +68,7 @@ export const authApi = {
     const payload = {
       email: credentials.email,
       password: credentials.password,
-      full_name: credentials.name.trim(),
+      full_name: `${credentials.firstName.trim()} ${credentials.lastName.trim()}`.trim(),
     };
 
     const response = await apiFetch("/auth/signup", {
