@@ -69,7 +69,7 @@ class EmailVerification(BaseModel):
 
 @router.post("/auth/signup")
 async def process_signup(payload: SignupCredentials):
-    ensure_auth_flow_enabled()
+   # ensure_auth_flow_enabled()
     logger.info("Attempting to register new student: %s", payload.email)
     
     first_name = f"{payload.first_name}".strip()
@@ -148,7 +148,7 @@ async def process_signup(payload: SignupCredentials):
 
 @router.post("/auth/login")
 async def process_login(payload: UserAuthCredentials):
-    ensure_auth_flow_enabled()
+    #ensure_auth_flow_enabled()
 
     supabase_public = get_supabase_public()
     try:
@@ -185,7 +185,7 @@ async def process_login(payload: UserAuthCredentials):
 
 @router.get("/auth/me")
 async def get_current_auth_user(current_user=Depends(verify_student_token)):
-    ensure_auth_flow_enabled()
+   # ensure_auth_flow_enabled()
     student_id = current_user.id
     supabase_admin = get_supabase_admin()
 # hello
