@@ -4,9 +4,18 @@ import { useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
+import { AuthGate } from "./auth-gate";
 import { getAccessToken, loadCurrentUser, saveLoginSession } from "./session";
 
 export default function LoginPage() {
+  return (
+    <AuthGate>
+      <LoginContent />
+    </AuthGate>
+  );
+}
+
+function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

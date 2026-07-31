@@ -15,10 +15,10 @@ class WriterSourceType(str, Enum):
 
 class WriterModuleSchema(BaseModel):
     sub_topic: str = Field(
-        description="A crisp, topic-focused module title for the lesson outline."
+        description="A crisp, topic-focused section title for the note package."
     )
     teaching_guidelines: str = Field(
-        description="Structured study guidance, whiteboard flow, and teaching notes for the tutor."
+        description="A compact section of note content, examples, formulas, and explanations."
     )
 
 
@@ -33,7 +33,7 @@ class WriterResponseSchema(BaseModel):
         description="Short summary of the input source or attached material."
     )
     modules: list[WriterModuleSchema] = Field(
-        description="An ordered list of 3 to 5 lesson modules.",
+        description="An ordered list of 3 to 5 note sections.",
         min_length=3,
         max_length=5,
     )
