@@ -1,7 +1,7 @@
 
 export const PRODUCTION_API_URL = "https://kamara.onrender.com/api/v1";
 export const PRODUCTION_WEBSOCKET_URL = "wss://kamara.onrender.com/ws/api/v1";
-// export const LOCAL_API_URL = "http://localhost:8001/api/v1";
+export const LOCAL_API_URL = "http://localhost:8001/api/v1";
 //export const PRODUCTION_API_URL = "https://kamara.onrender.com";
 
 /**
@@ -9,6 +9,7 @@ export const PRODUCTION_WEBSOCKET_URL = "wss://kamara.onrender.com/ws/api/v1";
  */
 export function getBaseUrl() {
   return PRODUCTION_API_URL;
+  //return LOCAL_API_URL;
 }
 
 /**
@@ -16,4 +17,5 @@ export function getBaseUrl() {
  */
 export function getWebSocketBaseUrl() {
   return PRODUCTION_WEBSOCKET_URL;
+  //return LOCAL_WEBSOCKET_URL;
 }
