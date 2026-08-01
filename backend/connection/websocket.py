@@ -6,8 +6,9 @@ from app.auth import verify_student_token
 from connection.connect_manager import manager
 from kamara.tutor.toolset.tools import build_tool_prompt
 from kamara.tutor.tutor import agent
-
 from .database import fetch_complete_note
+from prompts.System_prompt import system_instruction
+
 
 logger = logging.getLogger("KamaraLogger")
 
@@ -36,9 +37,9 @@ async def live_classroom_session_stream(
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         logger.error("WebSocket setup aborted: curated notes data unreachable for session %s", session_id)
         return
-
+    system_prompt = system_instruction(ctx)
     tool_prompt = build_tool_prompt()
-    system_prompt = f"""
+    system_prompt_ = f"""
 ROLE & SYSTEM IDENTITY:
 You are Kamara, a warm, patient, highly capable classroom teacher speaking to one student in a live lesson.
 Your job is to teach clearly, continuously, and naturally using voice plus a whiteboard.
