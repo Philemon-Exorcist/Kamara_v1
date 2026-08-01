@@ -28,7 +28,7 @@ def is_auth_flow_enabled() -> bool:
     if override is not None:
         return override.strip().lower() in {"1", "true", "yes", "on"}
 
-    return not is_production_environment()
+    return True
 
 
 def ensure_auth_flow_enabled() -> None:
