@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 #from .supabase_client import supabase_admin
 from .supabase_client import get_supabase_admin, get_supabase_public
 from .auth import verify_student_token
-from .runtime import ensure_auth_flow_enabled, get_frontend_app_url
+from .runtime import ensure_auth_flow_enabled
 
 logger = logging.getLogger("KamaraLogger")
 
