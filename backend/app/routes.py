@@ -118,18 +118,36 @@ async def process_signup(payload: SignupCredentials):
             }
         ).execute()
 
+        starter_plan = (
+            supabase_admin
+            .table("plans")
+            .select("id")
+            .eq("name", "starter")
+            .single()
+            .execute()
+        )
+
+        plan_id = starter_plan.data["id"]
 
         trial_start = datetime.now(timezone.utc)
         trial_end = trial_start + timedelta(days=7)
 
-        supabase_admin.table("subscriptions").insert({
-            "user_id": student_id,
-            "plan_id": "starter",
-            "status": "trial",
-            "trial_started_at": trial_start.isoformat(),
-            "trial_ends_at": trial_end.isoformat()
-        }).execute()
+        supabase_admin.table("subscriptions").insert(
+                                    {
+                "user_id": student_id,
+                "plan_id": plan_id,
+                "status": "trial",
+                "provider": None,
+                "trial_started_at": trial_start.isoformat(),
+                "trial_ends_at": trial_end.isoformat(),
+            }
+            ).execute()
 
+
+     #   logger.info("Public profile database row tracking written successfully.")
+    #    return {
+     #       "status": "pending_verification", 
+     #       "message": "Awesome! Please check your email inbox to verify your account."  }
 
         
     except Exception as e:
@@ -138,12 +156,12 @@ async def process_signup(payload: SignupCredentials):
             status_code=400,
             detail=f"Profile creation failed: {str(e)}",
         )
+    else:
+        raise HTTPException(
+            status_code=201,
+            detail="User registered successfully. Please check your email to verify your account.",
+        )
 
-    logger.info("Public profile database row tracking written successfully.")
-    return {
-        "status": "pending_verification", 
-        "message": "Awesome! Please check your email inbox to verify your account."
-    }
 
 
 @router.post("/auth/login")
@@ -180,7 +198,7 @@ async def process_login(payload: UserAuthCredentials):
         }
     except Exception as e:
         logger.error("SUPABASE AUTH LOGIN FAILED: %s", str(e))
-        raise HTTPException(status_code=401, detail="Authentication failed.")
+        raise HTTPException(status_code=401, detail="Authentication failed. Incorrect email or password.")
 
 
 @router.get("/auth/me")

@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
-import { type Editor, type IndexKey, type TLGeoShape, type TLShapeId, Tldraw, createShapeId, toRichText } from "tldraw";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { atom } from "@tldraw/state";
+import { createTLStore } from "@tldraw/editor";
+import { type Editor, type IndexKey, type TLGeoShape, type TLShapeId, Tldraw, createShapeId, defaultAssetUtils, defaultBindingUtils, defaultShapeUtils, toRichText } from "tldraw";
 import "tldraw/tldraw.css";
 
 export type BoardCommand =
@@ -63,6 +65,20 @@ export type LiveBoardProps = {
   onEditorReady?: (editor: Editor | null) => void;
 };
 
+const READ_ONLY_MODE = atom<"readonly" | "readwrite">("board-readonly-mode", "readonly");
+
+const FIXED_SHEET_STYLE = {
+  width: "100%",
+  height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
+  background: "#fff",
+  border: "1px solid #ccc",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  overflow: "hidden",
+  boxSizing: "border-box" as const,
+};
+
 function clearTldrawStorage() {
   if (typeof window === "undefined") {
     return;
@@ -101,6 +117,16 @@ function getGeoShape(shape: string): TLGeoShape["props"]["geo"] {
     default:
       return "rectangle";
   }
+}
+
+function lockCanvasToSheet(editor: Editor) {
+  editor.setCamera({ x: 0, y: 0, z: 1 }, { immediate: true, force: true });
+  editor.setCameraOptions({
+    isLocked: true,
+    panSpeed: 0,
+    zoomSpeed: 0,
+    wheelBehavior: "none",
+  });
 }
 
 export function applyBoardCommand(editor: Editor, command: BoardCommand) {
@@ -215,10 +241,24 @@ export function applyBoardCommand(editor: Editor, command: BoardCommand) {
 
 export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
   const editorRef = useRef<Editor | null>(null);
+  const readOnlyStore = useMemo(
+    () =>
+      createTLStore({
+        shapeUtils: defaultShapeUtils,
+        bindingUtils: defaultBindingUtils,
+        assetUtils: defaultAssetUtils,
+        collaboration: {
+          status: null,
+          mode: READ_ONLY_MODE,
+        },
+      }),
+    []
+  );
 
   const handleMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor;
+      lockCanvasToSheet(editor);
       onEditorReady?.(editor);
     },
     [onEditorReady]
@@ -237,13 +277,18 @@ export default function LiveBoard({ onEditorReady }: LiveBoardProps) {
       style={{
         width: "100%",
         height: "100%",
-        minHeight: 400,
-        background: "#fff",
+        minHeight: 0,
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "center",
         overflow: "hidden",
-        position: "relative",
+        padding: 12,
+        boxSizing: "border-box" as const,
       }}
     >
-      <Tldraw hideUi onMount={handleMount} />
+      <div style={FIXED_SHEET_STYLE}>
+        <Tldraw hideUi isReadOnly={true} store={readOnlyStore} onMount={handleMount} />
+      </div>
     </div>
   );
 }

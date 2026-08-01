@@ -82,7 +82,7 @@ def _build_text_bundle(prompt: str, helper_text: str | None = None) -> WriterCon
         source_summary=source_summary,
         contents=[],
     )
-
+# we would need to add youtube and external tutorial links as well as other sources in the future. 
 
 async def build_writer_content_bundle(prompt: str, helper_material_url: str | None = None) -> WriterContentBundle:
     if not helper_material_url:

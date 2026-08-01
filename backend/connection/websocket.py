@@ -37,7 +37,7 @@ async def live_classroom_session_stream(
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         logger.error("WebSocket setup aborted: curated notes data unreachable for session %s", session_id)
         return
-    system_prompt = system_instruction(ctx)
+    system_prompt = await system_instruction(ctx)
     tool_prompt = build_tool_prompt()
     system_prompt_ = f"""
 ROLE & SYSTEM IDENTITY:

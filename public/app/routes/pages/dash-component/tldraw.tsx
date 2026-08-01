@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { atom } from '@tldraw/state';
+import { createTLStore } from '@tldraw/editor';
 import { getWebSocketBaseUrl } from '../../api-config';
 import {
   type Editor,
   type IndexKey,
   type TLGeoShape,
   type TLShapeId,
+  defaultAssetUtils,
+  defaultBindingUtils,
+  defaultShapeUtils,
   Tldraw,
   createShapeId,
   toRichText,
@@ -13,6 +18,7 @@ import 'tldraw/tldraw.css';
 import { getGeneratedCourseStorageKey } from '../genie-api';
 
 const WS_BASE_URL = getWebSocketBaseUrl();
+const READ_ONLY_MODE = atom<'readonly' | 'readwrite'>('board-readonly-mode', 'readonly');
 // will add cloud run url 
 type BoardCommand =
   | {
@@ -73,6 +79,18 @@ type BoardCommand =
 type TldrawComponentProps = {
   sessionId?: string;
   onEditorReady?: (editor: Editor | null) => void;
+};
+
+const FIXED_SHEET_STYLE = {
+  width: "100%",
+  height: "100%",
+  maxWidth: "100%",
+  maxHeight: "100%",
+  background: "#fff",
+  border: "1px solid #ccc",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  overflow: "hidden",
+  boxSizing: "border-box" as const,
 };
 
 function getSessionId(fallback?: string) {
@@ -140,6 +158,16 @@ function getGeoShape(shape: string): TLGeoShape['props']['geo'] {
     default:
       return 'rectangle';
   }
+}
+
+function lockCanvasToSheet(editor: Editor) {
+  editor.setCamera({ x: 0, y: 0, z: 1 }, { immediate: true, force: true });
+  editor.setCameraOptions({
+    isLocked: true,
+    panSpeed: 0,
+    zoomSpeed: 0,
+    wheelBehavior: 'none',
+  });
 }
 
 function extractBoardCommand(payload: unknown) {
@@ -286,6 +314,19 @@ function applyBoardCommand(editor: Editor, command: BoardCommand) {
 const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => {
   const socketRef = useRef<WebSocket | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const readOnlyStore = useMemo(
+    () =>
+      createTLStore({
+        shapeUtils: defaultShapeUtils,
+        bindingUtils: defaultBindingUtils,
+        assetUtils: defaultAssetUtils,
+        collaboration: {
+          status: null,
+          mode: READ_ONLY_MODE,
+        },
+      }),
+    []
+  );
 
   const disconnectBoardSocket = useCallback(() => {
     onEditorReady?.(null);
@@ -387,6 +428,7 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   const handleMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor;
+      lockCanvasToSheet(editor);
       onEditorReady?.(editor);
       connectBoardSocket();
     },
@@ -404,8 +446,15 @@ const TldrawComponent = ({ sessionId, onEditorReady }: TldrawComponentProps) => 
   }, [connectBoardSocket, disconnectBoardSocket, sessionId]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 400, background: '#fff', overflow: 'hidden', position: 'relative' }}>
-      <Tldraw hideUi onMount={handleMount} />
+    <div style={{ width: '100%', height: '100%', minHeight: 0, display: 'flex', alignItems: 'stretch', justifyContent: 'center', overflow: 'hidden', padding: 12, boxSizing: 'border-box' as const }}>
+      <div style={FIXED_SHEET_STYLE}>
+        <Tldraw
+          hideUi
+          isReadOnly={true}
+          store={readOnlyStore}
+          onMount={handleMount}
+        />
+      </div>
     </div>
   );
 };

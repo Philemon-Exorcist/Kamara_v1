@@ -57,8 +57,9 @@ async def get_student_dashboard_view(current_user: dict = Depends(verify_student
         plan_tier = "starter"
         try:
             # Optional table: some deployments do not have subscription tracking yet.
+            # what plan is in column
             sub_query = supabase.table("subscriptions")\
-                .select("plan")\
+                .select("plan_id")\
                 .eq("user_id", student_id)\
                 .maybe_single()\
                 .execute()
