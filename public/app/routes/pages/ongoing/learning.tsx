@@ -1,8 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from "react";
-<<<<<<< HEAD
-=======
 import { Navigate, useNavigate } from "react-router";
->>>>>>> 25660116c01d508f2192328764449c0cde1211bb
 import {
   Award,
   BookOpen,
@@ -31,11 +28,8 @@ import { type Editor, serializeTldrawJson, toRichText } from "tldraw";
 import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
 import { getGeneratedCourseStorageKey } from "../genie-api";
-<<<<<<< HEAD
-=======
 import { consumeSubscriptionFeature, isSubscriptionRequiredError } from "../../subscription-api";
 import { isLoggedIn } from "../../auth/session";
->>>>>>> 25660116c01d508f2192328764449c0cde1211bb
 import { getWebSocketBaseUrl } from "../../api-config";
 
 type GeneratedCourseSession = {
