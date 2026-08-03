@@ -4,6 +4,7 @@ import { useState, useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { getGeneratedCourseStorageKey, submitCoursePrompt } from "./genie-api";
 import CourseModal from "./ongoing/courseModal";
+import { GenieChatPanel } from "./dash-component";
 
 type Course = {
   title: string;
@@ -24,7 +25,7 @@ export function meta() {
     { title: "Genie | Kamara AI" },
     {
       name: "description",
-      content: "Browse and manage your courses.",
+      content: "create and manage your agents.",
     },
   ];
 }
@@ -32,6 +33,7 @@ export function meta() {
 export default function CoursesPage() {
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isGenieOpen, setIsGenieOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [submitError, setSubmitError] = useState("");
@@ -77,13 +79,19 @@ export default function CoursesPage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <section className="md:ml-[232px] min-h-screen pt-[92px] md:pt-[92px]" aria-label="Courses">
+      <section
+        className={`min-h-screen pt-[92px] md:pt-[92px] transition-[margin] duration-300 ${
+          isGenieOpen ? "md:ml-[232px] md:mr-[420px]" : "md:ml-[232px]"
+        }`}
+        aria-label="Courses"
+      >
         <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} />
         <div className="p-6">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-3xl font-bold text-slate-900">Genie</h1>
             <button
               type="button"
+              onClick={() => setIsGenieOpen((current) => !current)}
               className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
               <Plus size={16} aria-hidden="true" />
@@ -118,6 +126,7 @@ export default function CoursesPage() {
           </div>
         </div>
       </section>
+      <GenieChatPanel isOpen={isGenieOpen} onClose={() => setIsGenieOpen(false)} />
       <CourseModal
         course={selectedCourse}
         errorMessage={submitError}
