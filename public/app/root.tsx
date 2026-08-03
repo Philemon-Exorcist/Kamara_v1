@@ -22,6 +22,7 @@ const PUBLIC_ROUTES = new Set([
   "/forgot-password",
   "/update-password",
   "/reset-password",
+  "/dashboard",
 ]);
 
 export const links: Route.LinksFunction = () => [
