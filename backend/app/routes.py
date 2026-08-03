@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 #from .supabase_client import supabase_admin
 from .supabase_client import get_supabase_admin, get_supabase_public
-from .runtime import ensure_auth_flow_enabled
 from .auth import verify_student_token
+from .runtime import ensure_auth_flow_enabled
 
 logger = logging.getLogger("KamaraLogger")
 
@@ -69,7 +69,7 @@ class EmailVerification(BaseModel):
 
 @router.post("/auth/signup")
 async def process_signup(payload: SignupCredentials):
-   # ensure_auth_flow_enabled()
+    ensure_auth_flow_enabled()
     logger.info("Attempting to register new student: %s", payload.email)
     
     first_name = f"{payload.first_name}".strip()
@@ -118,18 +118,36 @@ async def process_signup(payload: SignupCredentials):
             }
         ).execute()
 
+        starter_plan = (
+            supabase_admin
+            .table("plans")
+            .select("id")
+            .eq("name", "starter")
+            .single()
+            .execute()
+        )
+
+        plan_id = starter_plan.data["id"]
 
         trial_start = datetime.now(timezone.utc)
         trial_end = trial_start + timedelta(days=7)
 
-        supabase_admin.table("subscriptions").insert({
-            "user_id": student_id,
-            "plan": "starter",
-            "status": "trial",
-            "trial_started_at": trial_start.isoformat(),
-            "trial_ends_at": trial_end.isoformat()
-        }).execute()
+        supabase_admin.table("subscriptions").insert(
+                                    {
+                "user_id": student_id,
+                "plan_id": plan_id,
+                "status": "trial",
+                "provider": None,
+                "trial_started_at": trial_start.isoformat(),
+                "trial_ends_at": trial_end.isoformat(),
+            }
+            ).execute()
 
+
+     #   logger.info("Public profile database row tracking written successfully.")
+    #    return {
+     #       "status": "pending_verification", 
+     #       "message": "Awesome! Please check your email inbox to verify your account."  }
 
         
     except Exception as e:
@@ -138,17 +156,17 @@ async def process_signup(payload: SignupCredentials):
             status_code=400,
             detail=f"Profile creation failed: {str(e)}",
         )
+    else:
+        raise HTTPException(
+            status_code=201,
+            detail="User registered successfully. Please check your email to verify your account.",
+        )
 
-    logger.info("Public profile database row tracking written successfully.")
-    return {
-        "status": "pending_verification", 
-        "message": "Awesome! Please check your email inbox to verify your account."
-    }
 
 
 @router.post("/auth/login")
 async def process_login(payload: UserAuthCredentials):
-    #ensure_auth_flow_enabled()
+    ensure_auth_flow_enabled()
 
     supabase_public = get_supabase_public()
     try:
@@ -180,15 +198,15 @@ async def process_login(payload: UserAuthCredentials):
         }
     except Exception as e:
         logger.error("SUPABASE AUTH LOGIN FAILED: %s", str(e))
-        raise HTTPException(status_code=401, detail="Authentication failed.")
+        raise HTTPException(status_code=401, detail="Authentication failed. Incorrect email or password.")
 
 
 @router.get("/auth/me")
 async def get_current_auth_user(current_user=Depends(verify_student_token)):
-   # ensure_auth_flow_enabled()
+    ensure_auth_flow_enabled()
     student_id = current_user.id
     supabase_admin = get_supabase_admin()
-# hello
+
     profile = {}
     try:
         profile_query = supabase_admin.table("profiles")\
@@ -223,7 +241,6 @@ async def get_current_auth_user(current_user=Depends(verify_student_token)):
 
 @router.post("/auth/forgot-password",status_code=status.HTTP_200_OK)
 async def forgot_password(payload:ForgotPassword):
-    ensure_auth_flow_enabled()
     clean_email = payload.email.strip().lower()
     logger.info("Password reset requested for: %s", clean_email)
     
@@ -255,7 +272,6 @@ async def forgot_password(payload:ForgotPassword):
 
 @router.post("/auth/update-password")
 async def process_password_update(payload: UpdatePasswordRequest):
-    ensure_auth_flow_enabled()
     logger.info("Attempting to process user password update.")
     
     # Crucial: use the user's recovery session, not the service role client.

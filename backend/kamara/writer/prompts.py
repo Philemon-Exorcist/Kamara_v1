@@ -3,7 +3,8 @@ from pathlib import Path
 
 CURRENT_DIR = Path(__file__).parent
 SKILLS_FILE_PATH = CURRENT_DIR / "writer_skills" / "research_skill.md"
-
+# will be removing skills for now, will add it later
+# how to structure a note
 
 def _load_skill_block() -> str:
     try:

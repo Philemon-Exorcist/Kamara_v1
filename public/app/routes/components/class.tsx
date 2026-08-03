@@ -9,11 +9,16 @@ import TldrawComponent from "../pages/dash-component/tldraw";
  */
 export function LiveClassroom() {
   return (
-    <div className="live-classroom-area" style={{ width: '100%', height: '100%' }}>
+    <div
+      className="live-classroom-area"
+      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+    >
       <div className="classroom-header">
         <h2>Interactive Whiteboard</h2>
       </div>
-      <TldrawComponent />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <TldrawComponent />
+      </div>
     </div>
   );
 }
