@@ -29,7 +29,7 @@ export function EventsPanel({ activities = [] }: { activities?: Activity[] }) {
           <h2 id="events-title" className="text-lg font-semibold text-slate-900">Recent activity</h2>
           <p className="text-sm text-slate-500">Latest learning actions from your account.</p>
         </div>
-        <a href="#activity-details" className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+        <a href="/recent-sessions" className="text-sm font-semibold text-blue-700 hover:text-blue-800">
           View all
         </a>
       </div>
