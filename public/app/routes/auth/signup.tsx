@@ -53,9 +53,9 @@ function SignupContent() {
 
     setLoading(true);
     try {
-      await authApi.signup({ firstName, lastName, email, password });
-      setSuccess("Registration successful! Redirecting to login...");
-      setTimeout(() => navigate("/login"), 2000);
+      const result = await authApi.signup({ firstName, lastName, email, password });
+      setSuccess(result?.message || "Registration successful. Please confirm your email before signing in.");
+      setTimeout(() => navigate("/login?notice=verify_email"), 2000);
     } catch (err: any) {
       setErrors({ general: err.message });
     } finally {

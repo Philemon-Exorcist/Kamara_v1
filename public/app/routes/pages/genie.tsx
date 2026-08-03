@@ -70,6 +70,14 @@ export default function CoursesPage() {
       setSelectedCourse(null);
       navigate("/ongoing/learning");
     } catch (error) {
+      if (isSubscriptionRequiredError(error)) {
+        const params = new URLSearchParams();
+        if (error.feature) params.set("feature", error.feature);
+        if (error.reason) params.set("reason", error.reason);
+        if (error.requiredPlan) params.set("plan", error.requiredPlan);
+        navigate(`/upgrade?${params.toString()}`);
+        return;
+      }
       setSubmitError(error instanceof Error ? error.message : "Could not send your prompt. Please try again.");
     } finally {
       setIsSubmitting(false);

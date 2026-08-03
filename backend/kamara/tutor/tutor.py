@@ -67,7 +67,7 @@ async def agent(student_id: str, websocket: WebSocket, system_prompt: str, sessi
                     bool(resume_handle),
                 )
 
-                reconnect_attempt = 0
+                reconnect_attempt = 2
 
                 async with asyncio.TaskGroup() as tg:
                     tg.create_task(

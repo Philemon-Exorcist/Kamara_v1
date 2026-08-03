@@ -18,7 +18,10 @@ router = APIRouter(prefix="/api/v1")
 
 
 def get_frontend_app_url() -> str:
-    return os.getenv("FRONTEND_APP_URL", "http://localhost:5173").rstrip("/")
+    return os.getenv("FRONTEND_APP_URL", 
+                    # "http://localhost:5173"
+                     "https://kamara.study"
+                     ).rstrip("/")
 
 
 class UserAuthCredentials(BaseModel):
@@ -67,7 +70,7 @@ class EmailVerification(BaseModel):
     token_hash : str
 
 
-@router.post("/auth/signup")
+@router.post("/auth/signup", status_code=status.HTTP_201_CREATED)
 async def process_signup(payload: SignupCredentials):
     ensure_auth_flow_enabled()
     logger.info("Attempting to register new student: %s", payload.email)
@@ -156,11 +159,10 @@ async def process_signup(payload: SignupCredentials):
             status_code=400,
             detail=f"Profile creation failed: {str(e)}",
         )
-    else:
-        raise HTTPException(
-            status_code=201,
-            detail="User registered successfully. Please check your email to verify your account.",
-        )
+    return {
+        "status": "success",
+        "message": "Your account has been created. Please confirm your email before signing in, then come back to log in.",
+    }
 
 
 
@@ -198,6 +200,10 @@ async def process_login(payload: UserAuthCredentials):
         }
     except Exception as e:
         logger.error("SUPABASE AUTH LOGIN FAILED: %s", str(e))
+        error_message = str(e).lower()
+        if "email not confirmed" in error_message or "email not verified" in error_message:
+            raise HTTPException(status_code=403, detail="Please confirm your email before signing in. Check your inbox, verify your account, then come back to log in.")
+
         raise HTTPException(status_code=401, detail="Authentication failed. Incorrect email or password.")
 
 

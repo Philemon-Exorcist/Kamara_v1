@@ -13,6 +13,7 @@ from pages.profile import profile_router
 from pages.dashboard import dashboard_router
 from pages import recent_sessions
 from pages.courses import course_router
+from app.subscriptions import subscription_router
 from core.cron import register_background_tasks,start_background_tasks,stop_background_tasks
 
 
@@ -104,6 +105,7 @@ app.include_router(waitlist_router)
 app.include_router(profile_router)
 app.include_router(dashboard_router)
 app.include_router(course_router)
+app.include_router(subscription_router)
 app.include_router(socket_router) # websocket router
 
 if __name__ == "__main__":

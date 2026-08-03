@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Eye, EyeOff, GraduationCap, CheckCircle2, AlertCircle } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import authImage from "../../assets/hero2.jpg";
 import "./auth.css";
 import { authApi, validate } from "./auth-api";
@@ -23,6 +23,14 @@ function LoginContent() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("notice") === "verify_email") {
+      setSuccess("Your account is ready. Please confirm your email before signing in, then come back to log in.");
+    }
+  }, [location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
