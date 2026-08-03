@@ -1,6 +1,6 @@
 import { Calculator, ArrowLeft, Plus, Settings, CircleHelp, GraduationCap, LogOut, X, History, Sparkles, ChevronRight, BadgeInfo } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { clearSession, getSessionUserName } from "../../auth/session";
+import { clearSession } from "../../auth/session";
 
 const navItems = ["Dashboard", "Genie", "Recent Sessions"];
 
@@ -22,7 +22,7 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ isOpen, onClose, userName: remoteUserName, planTier }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const userName = remoteUserName || getSessionUserName();
+  const userName = remoteUserName || "";
   const planLabel = planTier ? `${planTier.charAt(0).toUpperCase()}${planTier.slice(1)} plan` : "No active plan";
 
   const handleLogout = () => {
@@ -67,11 +67,17 @@ export function DashboardSidebar({ isOpen, onClose, userName: remoteUserName, pl
             <div className="mt-2.5 rounded-[18px] bg-slate-50 px-2.5 py-2">
               <p className="text-[8px] font-semibold uppercase tracking-[0.28em] text-slate-400">Menu</p>
               <div className="mt-2">
-                <p className="truncate text-[12px] font-semibold text-slate-900">{userName}</p>
-                <a className="mt-1 inline-flex items-center gap-1.5 text-[12px] font-semibold text-blue-700" href="/">
-                  <ArrowLeft size={13} aria-hidden="true" />
-                  Back
-                </a>
+                {userName ? <p className="truncate text-[12px] font-semibold text-slate-900">{userName}</p> : null}
+                <div className="mt-1.5 inline-flex flex-col items-start gap-1">
+                  <a className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-blue-700" href="/">
+                    <ArrowLeft size={13} aria-hidden="true" />
+                    Back
+                  </a>
+                  <a className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-blue-700" href="/ongoing/learning">
+                    <Plus size={13} aria-hidden="true" />
+                    New Session
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -124,8 +130,19 @@ export function DashboardSidebar({ isOpen, onClose, userName: remoteUserName, pl
             </button>
           </div>
 
-          <div className="mt-2 rounded-[20px] bg-slate-950 p-2.5 text-white shadow-[0_18px_40px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start gap-3">
+          <div className="relative mt-2 overflow-hidden rounded-[20px] bg-slate-950 p-2.5 text-white shadow-[0_18px_40px_rgba(15,23,42,0.28)]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-60"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.32) 1px, transparent 0), radial-gradient(circle at 8px 8px, rgba(37,99,235,0.16) 1px, transparent 0)",
+                backgroundSize: "16px 16px, 24px 24px",
+                backgroundPosition: "0 0",
+                backgroundRepeat: "repeat",
+              }}
+            />
+            <div className="relative z-10 flex items-start gap-3">
               <span className="inline-flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
                 <BadgeInfo size={14} />
               </span>
@@ -134,12 +151,12 @@ export function DashboardSidebar({ isOpen, onClose, userName: remoteUserName, pl
                 <p className="mt-0.5 text-[10px] text-slate-300">{planLabel}</p>
               </div>
             </div>
-            <div className="mt-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-1.75">
+            <div className="relative z-10 mt-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-1.75">
               <p className="text-[8px] uppercase tracking-[0.24em] text-slate-400">Status</p>
               <p className="mt-1 text-[12px] font-semibold text-white">{planTier ? "Active" : "Unassigned"}</p>
             </div>
             <a
-              className="mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-blue-600 px-3 py-1.75 text-[12px] font-semibold text-white transition hover:bg-blue-700"
+              className="relative z-10 mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-blue-600 px-3 py-1.75 text-[12px] font-semibold text-white transition hover:bg-blue-700"
               href="/#pricing"
             >
               <Plus size={13} aria-hidden="true" />

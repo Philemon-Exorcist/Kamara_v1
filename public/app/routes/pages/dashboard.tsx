@@ -64,8 +64,15 @@ function DashboardContent() {
         planTier={dashboard?.plan_tier}
       />
 
-      <section className="md:ml-[300px] min-h-screen" aria-label="Student dashboard">
-        <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} userName={dashboard?.full_name} planTier={dashboard?.plan_tier} />
+      <section className="md:ml-[232px] min-h-screen pt-[92px] md:pt-[92px]" aria-label="Student dashboard">
+        <DashboardTopbar
+          onMenuClick={() => setSidebarOpen(true)}
+          onSearchChange={setSearchQuery}
+          userName={dashboard?.full_name}
+          planTier={dashboard?.plan_tier}
+          showSearch={false}
+          title="Dashboard"
+        />
 
         <div className="max-w-[1400px] mx-auto px-6 py-6">
           {dashboardError ? (

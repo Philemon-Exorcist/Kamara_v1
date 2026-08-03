@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, type FormEvent } from "react";
-import { Navigate } from "react-router";
 import {
   Award,
   BookOpen,
@@ -28,9 +27,7 @@ import { type Editor, serializeTldrawJson, toRichText } from "tldraw";
 import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
 import { getGeneratedCourseStorageKey } from "../genie-api";
-import { isLoggedIn } from "../../auth/session";
 import { getWebSocketBaseUrl } from "../../api-config";
-import { getProtectedRouteRedirect } from "../../site-config";
 
 type GeneratedCourseSession = {
   session_id?: string;
@@ -201,10 +198,6 @@ export function meta() {
 }
 
 export default function DashboardPage() {
-  if (!isLoggedIn()) {
-    return <Navigate to={getProtectedRouteRedirect()} replace />;
-  }
-
   const [modules, setModules] = useState<LearningModule[]>(fallbackModules);
   const [generatedSession, setGeneratedSession] = useState<GeneratedCourseSession | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState(fallbackModules[0]?.id ?? "");

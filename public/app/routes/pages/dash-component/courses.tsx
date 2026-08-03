@@ -26,10 +26,10 @@ export default function CoursesPage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <section className="md:ml-[300px] min-h-screen" aria-label="Courses">
+      <section className="md:ml-[232px] min-h-screen pt-[92px] md:pt-[92px]" aria-label="Courses">
         <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} />
         <div className="p-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-6">Courses</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-6">Genie</h1>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
               <div key={course.title} className="bg-white rounded-lg shadow-md p-6 flex flex-col justify-between hover:shadow-lg transition-shadow">
