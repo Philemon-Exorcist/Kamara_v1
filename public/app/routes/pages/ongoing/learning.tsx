@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import {
   Award,
   BookOpen,
@@ -28,6 +28,7 @@ import { type Editor, serializeTldrawJson, toRichText } from "tldraw";
 import LiveBoard, { applyBoardCommand, type BoardCommand } from "./liveBoard";
 import ModuleLibrary, { buildModulesFromBackendResponse, placeholderModules, type LearningModule } from "../dash-component/mod-lib";
 import { getGeneratedCourseStorageKey } from "../genie-api";
+import { consumeSubscriptionFeature, isSubscriptionRequiredError } from "../../subscription-api";
 import { isLoggedIn } from "../../auth/session";
 import { getWebSocketBaseUrl } from "../../api-config";
 import { getProtectedRouteRedirect } from "../../site-config";
@@ -59,7 +60,12 @@ const fallbackModules = placeholderModules;
 const WS_BASE_URL = getWebSocketBaseUrl();
 const COURSE_MODULES_WS_ENDPOINT = `${WS_BASE_URL}/courses/hrm/modules`;
 function isAudioStreamingSupported() {
-  return typeof window !== "undefined" && "MediaRecorder" in window && "WebSocket" in window;
+  return (
+    typeof window !== "undefined" &&
+    "WebSocket" in window &&
+    "AudioContext" in window &&
+    !!navigator.mediaDevices?.getUserMedia
+  );
 }
 
 function getActiveSessionId() {
@@ -181,6 +187,17 @@ function float32To16BitPCM(input: Float32Array) {
   return buffer;
 }
 
+function appendFloat32Chunks(existing: Float32Array, next: Float32Array) {
+  if (existing.length === 0) {
+    return new Float32Array(next);
+  }
+
+  const merged = new Float32Array(existing.length + next.length);
+  merged.set(existing, 0);
+  merged.set(next, existing.length);
+  return merged;
+}
+
 async function blobToDataUrl(blob: Blob) {
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -217,6 +234,7 @@ export default function DashboardPage() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [boardEditor, setBoardEditor] = useState<Editor | null>(null);
   const [tutorNotice, setTutorNotice] = useState<{ type: "info" | "warning" | "error"; message: string } | null>(null);
+  const navigate = useNavigate();
 
   const moduleSocketRef = useRef<WebSocket | null>(null);
   const tutorSocketRef = useRef<WebSocket | null>(null);
@@ -232,7 +250,7 @@ export default function DashboardPage() {
   const lastCanvasSnapshotTextRef = useRef<string>("");
   const isSendingCanvasSnapshotRef = useRef(false);
   const micChunkCountRef = useRef(0);
-  const micLastVoiceAtRef = useRef(0);
+  const micPendingSamplesRef = useRef<Float32Array>(new Float32Array(0));
   const pendingBoardCommandsRef = useRef<unknown[]>([]);
   const previousSessionIdRef = useRef<string | null>(null);
 
@@ -610,6 +628,17 @@ export default function DashboardPage() {
 
   const stopMicStream = () => {
     const socket = tutorSocketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN && micPendingSamplesRef.current.length > 0) {
+      const audioContext = audioContextRef.current;
+      const pendingSamples = micPendingSamplesRef.current;
+      micPendingSamplesRef.current = new Float32Array(0);
+
+      const downsampled = downsampleBuffer(pendingSamples, audioContext?.sampleRate ?? 16000, 16000);
+      if (downsampled.length > 0) {
+        socket.send(float32To16BitPCM(downsampled));
+      }
+    }
+
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: "audio_stream_end" }));
     }
@@ -623,7 +652,7 @@ export default function DashboardPage() {
     audioSourceRef.current = null;
     audioGainRef.current = null;
     audioContextRef.current = null;
-    micLastVoiceAtRef.current = 0;
+    micPendingSamplesRef.current = new Float32Array(0);
 
     audioStreamRef.current?.getTracks().forEach((track) => track.stop());
     audioStreamRef.current = null;
@@ -708,16 +737,7 @@ export default function DashboardPage() {
     }
   };
 
-  const scheduleBoardSnapshot = () => {
-    if (!isTutorConnected) {
-      return;
-    }
-
-    clearBoardSnapshotTimer();
-    boardSnapshotTimerRef.current = setTimeout(() => {
-      void sendCanvasSnapshots();
-    }, 2600);
-  };
+  const scheduleBoardSnapshot = () => {};
 
   const connectTutorSession = async () => {
     if (typeof window === "undefined" || !("WebSocket" in window)) {
@@ -782,16 +802,7 @@ export default function DashboardPage() {
           })
         );
 
-        // Wake the tutor immediately after the session starts so the UI does not wait for the first spoken word.
-        socket.send(
-          JSON.stringify({
-            type: "canvas_snapshot_text",
-            data: "Student has joined the room. Please speak immediately and give them a warm, short greeting.",
-          })
-        );
-
         void ensureAssistantAudioContext();
-        void sendCanvasSnapshots();
         resolve(true);
       };
 
@@ -886,8 +897,6 @@ export default function DashboardPage() {
       }
     );
 
-    void sendCanvasSnapshots();
-
     return () => {
       removeListener();
       clearBoardSnapshotTimer();
@@ -967,15 +976,27 @@ export default function DashboardPage() {
 
         const input = event.inputBuffer.getChannelData(0);
         const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
-        socket.send(float32To16BitPCM(downsampled));
 
-        micChunkCountRef.current += 1;
-        if (micChunkCountRef.current % 20 === 0) {
-          console.info("[Tutor WS] Sent mic chunk", {
-            chunkNumber: micChunkCountRef.current,
-            downsampledSamples: downsampled.length,
-            byteLength: downsampled.length * 2,
-          });
+        if (downsampled.length === 0) {
+          return;
+        }
+
+        micPendingSamplesRef.current = appendFloat32Chunks(micPendingSamplesRef.current, downsampled);
+
+        const targetSamplesPerChunk = 1600;
+        while (micPendingSamplesRef.current.length >= targetSamplesPerChunk) {
+          const chunk = micPendingSamplesRef.current.slice(0, targetSamplesPerChunk);
+          micPendingSamplesRef.current = micPendingSamplesRef.current.slice(targetSamplesPerChunk);
+          socket.send(float32To16BitPCM(chunk));
+
+          micChunkCountRef.current += 1;
+          if (micChunkCountRef.current % 20 === 0) {
+            console.info("[Tutor WS] Sent mic chunk", {
+              chunkNumber: micChunkCountRef.current,
+              downsampledSamples: chunk.length,
+              byteLength: chunk.length * 2,
+            });
+          }
         }
       };
 
@@ -1018,15 +1039,32 @@ export default function DashboardPage() {
     await connectTutorSession();
   };
 
-  const handleChatSubmit = (e: FormEvent) => {
+  const handleChatSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const message = chatInput.trim();
     if (!message || !moduleSocketRef.current || moduleSocketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
 
-    moduleSocketRef.current.send(JSON.stringify({ type: "chat_message", content: message }));
-    setChatInput("");
+    try {
+      await consumeSubscriptionFeature({ feature: "chat_message", quantity: 1 });
+      moduleSocketRef.current.send(JSON.stringify({ type: "chat_message", content: message }));
+      setChatInput("");
+    } catch (error) {
+      if (isSubscriptionRequiredError(error)) {
+        const params = new URLSearchParams();
+        if (error.feature) params.set("feature", error.feature);
+        if (error.reason) params.set("reason", error.reason);
+        if (error.requiredPlan) params.set("plan", error.requiredPlan);
+        navigate(`/upgrade?${params.toString()}`);
+        return;
+      }
+
+      setTutorNotice({
+        type: "error",
+        message: error instanceof Error ? error.message : "You cannot send this message right now.",
+      });
+    }
   };
 
   const generatedCourse = generatedSession?.generatedCourse;
@@ -1127,6 +1165,7 @@ export default function DashboardPage() {
                 <p className="mt-1 leading-6">{tutorNotice.message}</p>
               </div>
             )}
+
           </div>
         </div>
 

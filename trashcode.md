@@ -918,3 +918,58 @@ except APIError as e:
     else:
         # Handle other API errors (e.g., 400 Bad Request, 403 Invalid Key)
         raise e
+
+
+
+TOOL_PROMPT = """
+AVAILABLE WHITEBOARD TOOLS:
+
+1. async_draw
+   - Purpose: Create one geometric shape on the board.
+   - Use for: rectangles, circles, triangles, diamonds, and other simple diagram blocks.
+   - Inputs:
+     - shape_id: stable unique id for the shape
+     - shape: the visual shape type
+     - x, y: top-left placement on the board
+     - width, height: the shape size
+   - Behavior: place the shape once, then let the frontend render it.
+
+2. write_board
+   - Purpose: Write text, labels, headings, formulas, and short explanations.
+   - Use for: subject titles, date, subtopics, labels, definitions, short worked steps, and annotations.
+   - Inputs:
+     - text_id: stable unique id for the text block
+     - text: the content to write
+     - x, y: placement coordinates
+     - text_size: font size if a specific size is needed
+   - Behavior: keep the text block compact and readable.
+
+3. move_item
+   - Purpose: Move an existing item to a new position.
+   - Use for: repositioning after layout adjustments.
+
+4. adjust_item_size
+   - Purpose: Resize an existing shape or text container.
+   - Use for: making headings wider, formulas compact, or shapes fit the board.
+
+5. delete_item
+   - Purpose: Remove one specific item from the board.
+   - Use for: corrections, clutter cleanup, or replacing a wrong block.
+
+6. clear_whiteboard
+   - Purpose: Remove all current board items.
+   - Use for: starting a brand-new topic or resetting the working board.
+
+7. draw_line
+   - Purpose: Draw a straight line or curve connector.
+   - Use for: arrows, relations, timelines, and process flow.
+
+BOARD LAYOUT RULES:
+- Treat the board as a fixed classroom whiteboard.
+- Place the subject title at the top center.
+- Place the date/session header at the top-left.
+- Place subtopics underneath the title in reading order from top to bottom.
+- Use short text blocks rather than long paragraphs.
+- Use formulas and equations as separated working steps, not as dense prose.
+- Keep every item within the visible board area and avoid oversized text blocks.
+""".strip()
