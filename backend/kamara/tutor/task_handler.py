@@ -64,13 +64,20 @@ async def forward_frontend_mic_and_canvas_to_gemini(student_id: str, websocket, 
                         len(audio_data),
                     )
 
-                    # Forward microphone data IMMEDIATELY without delays [0xa9059cbb]
-                    await session.send_realtime_input(
-                        audio=types.Blob(
-                            data=audio_data,
-                            mime_type="audio/pcm;rate=16000",
+                    # Forward microphone data immediately without extra buffering on the backend.
+                    try:
+                        await session.send_realtime_input(
+                            audio=types.Blob(
+                                data=audio_data,
+                                mime_type="audio/pcm;rate=16000",
+                            )
                         )
-                    )
+                    except Exception as forward_err:
+                        logger.exception(
+                            "Failed forwarding inbound mic frame to Gemini for %s: %s",
+                            student_id,
+                            str(forward_err),
+                        )
 
                 # ==================================================================
                 # CHANNEL 2: PROCESSING CANVAS EVENTS (Arriving via 'text')

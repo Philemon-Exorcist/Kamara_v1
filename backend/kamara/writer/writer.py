@@ -10,7 +10,7 @@ from .source_loader import build_writer_content_bundle
 
 logger = logging.getLogger("KamaraLogger")
 #WRITER_MODEL = "gemini-3.5-flash"
-WRITER_MODEL="gemini-3.6-flash"
+WRITER_MODEL="gemini-3.6-flash" # will switch to a lower model later if we want to save costs, but for now we want the best quality possible
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 client = Client(api_key=api_key,http_options={"api_version": "v1alpha"})
@@ -33,24 +33,40 @@ def _fallback_syllabus(message: str) -> WriterResponseSchema:
     modules = [
         WriterModuleSchema(
             sub_topic=f"{subject.title()} foundations",
-            teaching_guidelines=(
-                f"Introduce the key vocabulary behind {topic}. On the board, place the main idea in the center, "
-                "draw three labeled branches for definitions, assumptions, and common mistakes, then add one "
-                "short worked example beside each branch."
+            section_notes=(
+                f"## {subject.title()} Foundations\n\n"
+                f"This section introduces the core vocabulary and ideas behind "
+                f"{topic}, starting from a plain-language definition before any "
+                "formal notation is used.\n\n"
+                f"**Definition:** {topic} refers to the foundational concept "
+                "being studied in this lesson; the precise definition depends "
+                "on the specific subject and should be verified against a "
+                "current, reliable source.\n\n"
+                "**Worked Example:** A simple case applying the definition "
+                "above, with the complete solution shown step by step, goes "
+                "here."
             ),
         ),
         WriterModuleSchema(
-            sub_topic="Core methods and worked examples",
-            teaching_guidelines=(
-                "Build two side-by-side examples: one basic case and one exam-style case. Number every step, "
-                "circle each formula or rule when it first appears, and end with a short checkpoint question."
+            sub_topic="Core methods",
+            section_notes=(
+                "## Core Methods\n\n"
+                "This section lays out the standard method or rule set used "
+                "to work through problems on this topic.\n\n"
+                "**Example 1 (basic case):** A straightforward worked example "
+                "with its full solution.\n\n"
+                "**Example 2 (exam-style case):** A more advanced worked "
+                "example, closer to what appears in exam questions, with its "
+                "full solution."
             ),
         ),
         WriterModuleSchema(
-            sub_topic="Practice pathway and mastery checks",
-            teaching_guidelines=(
-                "Create a three-level practice ladder labeled warm-up, standard, and challenge. For each level, "
-                "show the expected first move, the reasoning cue, and the final answer-check habit."
+            sub_topic="Summary and key takeaways",
+            section_notes=(
+                "## Summary\n\n"
+                "A concise recap of the key definitions, formulas, and "
+                "methods covered above, presented as a short list a student "
+                "could review quickly before an exam."
             ),
         ),
     ]
@@ -58,22 +74,16 @@ def _fallback_syllabus(message: str) -> WriterResponseSchema:
     notes = (
         f"# Study Guide: {subject.title()}\n\n"
         f"## Learning Goal\n{goal}\n\n"
-        "## How To Study This Topic\n"
-        "Start with the definitions, then work through guided examples before attempting independent practice. "
-        "After each example, explain why the method works in your own words.\n\n"
-        "## Core Roadmap\n"
-        "1. Identify the key terms and what each one means.\n"
-        "2. Learn the standard method or rule set.\n"
-        "3. Apply the method to simple examples.\n"
-        "4. Increase difficulty with mixed practice.\n"
-        "5. Review mistakes and rewrite the correct reasoning.\n\n"
-        "> **Concept Check:** You understand the topic when you can solve a fresh problem and explain each step "
-        "without copying the example.\n\n"
-        "## Practice Routine\n"
-        "- Complete three warm-up questions.\n"
-        "- Complete two standard questions without notes.\n"
-        "- Write one summary paragraph explaining the method.\n"
+        f"{modules[0].section_notes}\n\n"
+        f"{modules[1].section_notes}\n\n"
+        f"{modules[2].section_notes}\n"
     )
+
+    assessment_questions = [
+        f"State, in your own words, the core definition covered under {subject.title()}.",
+        "Work through one basic example using the standard method described above, showing every step.",
+        "Attempt one exam-style question on this topic and check your reasoning against the worked examples.",
+    ]
 
     return WriterResponseSchema(
         title=f"{subject.title()} Study Guide",
@@ -81,6 +91,7 @@ def _fallback_syllabus(message: str) -> WriterResponseSchema:
         source_summary="Fallback prompt-only note package.",
         modules=modules,
         textbook_handout_notes=notes,
+        assessment_questions=assessment_questions,
     )
 
 
@@ -109,6 +120,8 @@ async def run_writer_agent(request: WriterRequestSchema, user_id: str = "course-
                 systemInstruction=build_writer_system_prompt(),
                 responseMimeType="application/json",
                 responseSchema=WriterResponseSchema,
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=1.0, 
             ),
         )
 
@@ -134,6 +147,7 @@ async def run_writer_agent(request: WriterRequestSchema, user_id: str = "course-
             source_summary=fallback.source_summary,
             modules=[WriterModuleSchema.model_validate(module.model_dump()) for module in fallback.modules],
             textbook_handout_notes=fallback.textbook_handout_notes,
+            assessment_questions=fallback.assessment_questions,
         )
     finally:
         logger.info("Writer engine finished for designer instance: %s", user_id)

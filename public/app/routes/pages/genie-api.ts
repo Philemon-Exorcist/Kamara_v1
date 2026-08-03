@@ -1,5 +1,6 @@
 import { getBaseUrl } from "../api-config";
 import { getAuthHeaders, getSessionUserKey } from "../auth/session";
+import { SubscriptionRequiredError } from "../subscription-api";
 
 export const GENERATED_COURSE_STORAGE_KEY = "kamara-generated-course";
 
@@ -9,6 +10,13 @@ export function getGeneratedCourseStorageKey() {
 
 async function parseApiError(response: Response, fallback: string) {
   const errorData = await response.json().catch(() => ({}));
+
+  if (typeof errorData?.error_code === "string" && errorData.error_code === "subscription_required") {
+    throw new SubscriptionRequiredError(
+      typeof errorData.message === "string" ? errorData.message : "Upgrade required.",
+      errorData
+    );
+  }
 
   if (typeof errorData.detail === "string") {
     return errorData.detail;
@@ -112,7 +120,11 @@ export async function submitCoursePrompt({
 
   // After attempting fetches, check if the final response is OK.
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Could not generate this course request."));
+    const error = await parseApiError(response, "Could not generate this course request.");
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(error);
   }
 
   return readCourseGenerationStream(response);
