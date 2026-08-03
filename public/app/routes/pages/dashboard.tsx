@@ -1,6 +1,5 @@
 import type { Route } from "./+types/dashboard";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import {
   DashboardSidebar,
   DashboardTopbar,
@@ -9,8 +8,6 @@ import {
   WelcomePanel,
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
-import { clearSession } from "../auth/session";
-import { ProtectedGate } from "../auth/protected-gate";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -24,9 +21,9 @@ export function meta({}: Route.MetaArgs) {
 
 export default function DashboardPage() {
   return (
-    <ProtectedGate>
+    
       <DashboardContent />
-    </ProtectedGate>
+    
   );
 }
 
@@ -35,7 +32,6 @@ function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [dashboardError, setDashboardError] = useState("");
-  const navigate = useNavigate();
 
   useEffect(() => {
     let ignore = false;
@@ -50,12 +46,6 @@ function DashboardContent() {
       })
       .catch((error) => {
         if (!ignore) {
-          if (error instanceof Error && /unauthorized|invalid session|access denied/i.test(error.message)) {
-            clearSession();
-            navigate("/login", { replace: true });
-            return;
-          }
-
           setDashboardError(error instanceof Error ? error.message : "Could not load your dashboard.");
         }
       });
@@ -67,7 +57,12 @@ function DashboardContent() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-      <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} userName={dashboard?.full_name} />
+      <DashboardSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        userName={dashboard?.full_name}
+        planTier={dashboard?.plan_tier}
+      />
 
       <section className="md:ml-[300px] min-h-screen" aria-label="Student dashboard">
         <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} onSearchChange={setSearchQuery} userName={dashboard?.full_name} planTier={dashboard?.plan_tier} />

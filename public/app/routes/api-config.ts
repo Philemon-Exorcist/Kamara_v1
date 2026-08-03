@@ -9,16 +9,30 @@ export const LOCAL_WEBSOCKET_URL = "ws://localhost:8001/ws/api/v1";
  * Frontend API base URL.
  */
 export function getBaseUrl() {
-  //return PRODUCTION_API_URL;
-  return LOCAL_API_URL;
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return LOCAL_API_URL;
+    }
+  }
+
+  return PRODUCTION_API_URL;
 }
 
 /**
  * Returns the websocket origin for the current environment.
  */
 export function getWebSocketBaseUrl() {
-  //return PRODUCTION_WEBSOCKET_URL;
-  return LOCAL_WEBSOCKET_URL;
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return LOCAL_WEBSOCKET_URL;
+    }
+  }
+
+  return PRODUCTION_WEBSOCKET_URL;
 }
 
 
