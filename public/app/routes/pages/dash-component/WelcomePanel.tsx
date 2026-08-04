@@ -20,9 +20,9 @@ type CourseCard = {
 };
 
 export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("in-progress");
+  const [activeTab, setActiveTab] = useState<Exclude<TabKey, "upcoming">>("in-progress");
   const userName = fullName || getSessionUserName();
-  const planLabel = planTier ? `${planTier.charAt(0).toUpperCase()}${planTier.slice(1)} plan` : "Student dashboard";
+  const planLabel = planTier ? `${planTier.charAt(0).toUpperCase()}${planTier.slice(1)} plan` : "";
 
   const inProgressClasses: CourseCard[] = [
     {
@@ -39,22 +39,19 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
       image: chemistryCardImage,
       accent: "bg-emerald-700/90",
     },
-  ];
-
-  const upcomingClasses: CourseCard[] = [
     {
-      title: "English Comprehension",
+      title: "Mathematics Foundations",
       teacher: "John Doe",
-      progressLabel: "Tomorrow",
+      progressLabel: "45 mins",
       image: physicsCardImage,
-      accent: "bg-blue-700/90",
+      accent: "bg-emerald-700/90",
     },
     {
-      title: "World History",
+      title: "Computer Science Basics",
       teacher: "John Doe",
-      progressLabel: "Next week",
+      progressLabel: "1 hour",
       image: chemistryCardImage,
-      accent: "bg-blue-700/90",
+      accent: "bg-emerald-700/90",
     },
   ];
 
@@ -73,22 +70,34 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
       image: physicsCardImage,
       accent: "bg-slate-700/90",
     },
+    {
+      title: "Grammar and Writing",
+      teacher: "John Doe",
+      progressLabel: "Completed",
+      image: chemistryCardImage,
+      accent: "bg-slate-700/90",
+    },
+    {
+      title: "Environmental Science",
+      teacher: "John Doe",
+      progressLabel: "Completed",
+      image: physicsCardImage,
+      accent: "bg-slate-700/90",
+    },
   ];
 
-  const activeClasses =
-    activeTab === "completed" ? completedClasses : activeTab === "upcoming" ? upcomingClasses : inProgressClasses;
+  const activeClasses = activeTab === "completed" ? completedClasses : inProgressClasses;
 
   return (
     <section className="w-full overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm" aria-labelledby="dashboard-welcome-title">
       <div className="flex flex-col gap-4 p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-blue-600">Student dashboard</p>
-            <h1 id="dashboard-welcome-title" className="mt-3 text-3xl font-semibold text-slate-900">
+            <h1 id="dashboard-welcome-title" className="text-3xl font-semibold text-slate-900">
               Welcome back, {userName}
             </h1>
           </div>
-          <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">{planLabel}</div>
+          {planLabel ? <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">{planLabel}</div> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 pb-4">
@@ -99,17 +108,8 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
               activeTab === "in-progress" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400"
             }`}
           >
-            In Progress
+            Enrolled
           </button>
-          <button
-              type="button"
-              onClick={() => setActiveTab("upcoming")}
-              className={`border-b-2 pb-2 text-lg font-semibold transition ${
-                activeTab === "upcoming" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400"
-              }`}
-            >
-              Upcoming
-            </button>
           <button
             type="button"
             onClick={() => setActiveTab("completed")}
@@ -123,11 +123,11 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
             href="/ongoing/learning"
             className="ml-auto inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
-            View more
+            See all enrolled
           </a>
         </div>
 
-        <div className="flex gap-4 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory">
+        <div className="flex max-w-full flex-nowrap gap-4 overflow-x-auto pb-2 pr-1 snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {activeClasses.map((course) => (
             <article
               key={`${activeTab}-${course.title}`}
@@ -144,16 +144,16 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
                     <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white/20">
                       <span className="text-sm font-semibold">JD</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold leading-none">{course.teacher}</p>
-                      <p className="text-xs text-white/70">Instructor</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold leading-none">{course.teacher}</p>
+                      <p className="truncate text-xs text-white/70">Instructor</p>
                     </div>
                   </div>
                   <div className={`rounded-full px-3 py-1.5 text-xs font-semibold ${course.accent}`}>{course.progressLabel}</div>
                 </div>
 
                 <div className="rounded-2xl bg-black/35 px-4 py-3 backdrop-blur-sm">
-                  <h2 className="text-xl font-semibold">{course.title}</h2>
+                  <h2 className="line-clamp-2 text-xl font-semibold leading-tight">{course.title}</h2>
                 </div>
               </div>
             </article>

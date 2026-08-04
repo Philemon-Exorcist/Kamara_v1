@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   DashboardSidebar,
   DashboardTopbar,
+  DashboardMetrics,
   WelcomePanel,
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
@@ -81,6 +82,7 @@ function DashboardContent() {
 
           <div className="space-y-6">
             <WelcomePanel fullName={dashboard?.full_name} planTier={dashboard?.plan_tier} recommendations={dashboard?.recommended_topics} />
+            <DashboardMetrics dashboard={dashboard} />
           </div>
         </div>
       </section>
