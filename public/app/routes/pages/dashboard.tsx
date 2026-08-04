@@ -79,13 +79,8 @@ function DashboardContent() {
             </div>
           ) : null}
 
-          <div className="grid gap-6 xl:grid-cols-[1.6fr_0.9fr]">
-            <div className="space-y-6">
-              <WelcomePanel fullName={dashboard?.full_name} planTier={dashboard?.plan_tier} recommendations={dashboard?.recommended_topics} />
-             
-
-            </div>
-
+          <div className="space-y-6">
+            <WelcomePanel fullName={dashboard?.full_name} planTier={dashboard?.plan_tier} recommendations={dashboard?.recommended_topics} />
           </div>
         </div>
       </section>
