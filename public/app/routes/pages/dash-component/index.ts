@@ -1,9 +1,10 @@
 export { DashboardSidebar } from "./DashboardSidebar";
 export { DashboardTopbar } from "./DashboardTopbar";
+export { DashboardMetrics } from "./DashboardMetrics";
 export { EventsPanel } from "./EventsPanel";
 export { GenieChatPanel } from "./GenieChatPanel";
 export { HomeworkProgress } from "./HomeworkProgress";
+export { ProgressInsights } from "./ProgressInsights";
 export { SchedulePanel } from "./SchedulePanel";
-export { DashboardMetrics } from "./DashboardMetrics";
 export { StatsCards } from "./StatsCards";
 export { WelcomePanel } from "./WelcomePanel";

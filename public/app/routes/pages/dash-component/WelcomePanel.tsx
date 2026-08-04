@@ -30,28 +30,28 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
       teacher: "John Doe",
       progressLabel: "Today • 11:30am",
       image: physicsCardImage,
-      accent: "bg-emerald-700/90",
+      accent: "bg-blue-700/90",
     },
     {
       title: "Fundamentals of Chemistry",
       teacher: "John Doe",
       progressLabel: "90 mins",
       image: chemistryCardImage,
-      accent: "bg-emerald-700/90",
+      accent: "bg-blue-700/90",
     },
     {
       title: "Mathematics Foundations",
       teacher: "John Doe",
       progressLabel: "45 mins",
       image: physicsCardImage,
-      accent: "bg-emerald-700/90",
+      accent: "bg-blue-700/90",
     },
     {
       title: "Computer Science Basics",
       teacher: "John Doe",
       progressLabel: "1 hour",
       image: chemistryCardImage,
-      accent: "bg-emerald-700/90",
+      accent: "bg-blue-700/90",
     },
   ];
 
@@ -90,14 +90,14 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
 
   return (
     <section className="w-full overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm" aria-labelledby="dashboard-welcome-title">
-      <div className="flex flex-col gap-4 p-8">
+      <div className="flex flex-col gap-4 p-6 lg:p-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 id="dashboard-welcome-title" className="text-3xl font-semibold text-slate-900">
+            <h1 id="dashboard-welcome-title" className="text-2xl font-semibold text-slate-900 lg:text-3xl">
               Welcome back, {userName}
             </h1>
           </div>
-          {planLabel ? <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">{planLabel}</div> : null}
+          {planLabel ? <div className="rounded-full bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">{planLabel}</div> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 pb-4">
@@ -121,7 +121,7 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
           </button>
           <a
             href="/ongoing/learning"
-            className="ml-auto inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+            className="ml-auto inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
             See all enrolled
           </a>
@@ -131,10 +131,10 @@ export function WelcomePanel({ fullName, planTier }: WelcomePanelProps) {
           {activeClasses.map((course) => (
             <article
               key={`${activeTab}-${course.title}`}
-              className="group min-w-[320px] flex-none snap-start overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-950 shadow-sm transition-transform duration-300 hover:-translate-y-1 md:min-w-[380px]"
-            >
-              <div
-                className="relative flex min-h-[210px] flex-col justify-between bg-cover bg-center p-4 text-white md:min-h-[190px]"
+            className="group min-w-[300px] flex-none snap-start overflow-hidden rounded-[1.75rem] border border-slate-200 bg-slate-950 shadow-sm transition-transform duration-300 hover:-translate-y-1 md:min-w-[340px]"
+          >
+            <div
+                className="relative flex min-h-[190px] flex-col justify-between bg-cover bg-center p-4 text-white md:min-h-[175px]"
                 style={{
                   backgroundImage: `linear-gradient(180deg, rgba(15, 23, 42, 0.25) 0%, rgba(15, 23, 42, 0.78) 100%), url(${course.image})`,
                 }}

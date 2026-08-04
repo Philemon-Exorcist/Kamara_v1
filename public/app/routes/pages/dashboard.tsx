@@ -4,6 +4,7 @@ import {
   DashboardSidebar,
   DashboardTopbar,
   DashboardMetrics,
+  ProgressInsights,
   WelcomePanel,
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
@@ -73,7 +74,7 @@ function DashboardContent() {
           title="Dashboard"
         />
 
-        <div className="max-w-[1400px] mx-auto px-6 py-6">
+        <div className="max-w-[1600px] mx-auto px-4 py-4 lg:px-6 lg:py-6">
           {dashboardError ? (
             <div className="mb-6 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
               {dashboardError}
@@ -82,7 +83,15 @@ function DashboardContent() {
 
           <div className="space-y-6">
             <WelcomePanel fullName={dashboard?.full_name} planTier={dashboard?.plan_tier} recommendations={dashboard?.recommended_topics} />
-            <DashboardMetrics dashboard={dashboard} />
+
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+              <div className="xl:w-[38%] xl:self-stretch">
+                <DashboardMetrics dashboard={dashboard} />
+              </div>
+              <div className="xl:w-[62%] xl:self-stretch">
+                <ProgressInsights dashboard={dashboard} />
+              </div>
+            </div>
           </div>
         </div>
       </section>

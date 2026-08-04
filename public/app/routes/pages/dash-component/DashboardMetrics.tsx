@@ -21,7 +21,7 @@ export function DashboardMetrics({ dashboard }: DashboardMetricsProps) {
       value: formatNumber(enrolledCount),
       note: "Derived from your dashboard activity",
       icon: <BookOpenCheck size={20} />,
-      tone: "bg-emerald-600 text-white",
+      tone: "bg-blue-600 text-white",
     },
     {
       label: "Completed",
@@ -47,21 +47,30 @@ export function DashboardMetrics({ dashboard }: DashboardMetricsProps) {
   ];
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Dashboard metrics">
-      {metrics.map((metric) => (
-        <article key={metric.label} className={`rounded-[1.75rem] border border-slate-200 p-5 shadow-sm ${metric.tone}`}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold opacity-80">{metric.label}</p>
-              <p className="mt-3 text-3xl font-semibold leading-none">{metric.value}</p>
+    <section className="flex h-full flex-col rounded-4xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6" aria-label="Dashboard metrics">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 lg:text-lg">Stats</h2>
+          <p className="text-sm text-slate-500">A quick look at your learning activity.</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid flex-1 gap-4 sm:grid-cols-2 xl:grid-cols-2">
+        {metrics.map((metric) => (
+          <article key={metric.label} className={`rounded-[1.75rem] border border-slate-200 p-4 shadow-sm lg:p-5 ${metric.tone}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold opacity-80">{metric.label}</p>
+                <p className="mt-3 text-2xl font-semibold leading-none lg:text-3xl">{metric.value}</p>
+              </div>
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15">
+                {metric.icon}
+              </span>
             </div>
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15">
-              {metric.icon}
-            </span>
-          </div>
-          <p className="mt-4 text-sm opacity-80">{metric.note}</p>
-        </article>
-      ))}
+            <p className="mt-4 text-sm opacity-80">{metric.note}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
