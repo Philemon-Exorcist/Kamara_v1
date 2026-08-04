@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import {
   DashboardSidebar,
   DashboardTopbar,
-  SchedulePanel,
-  StatsCards,
   WelcomePanel,
 } from "./dash-component";
 import { dashboardApi, type DashboardSummary } from "./dashboard-api";
